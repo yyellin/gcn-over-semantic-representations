@@ -13,11 +13,12 @@ class DataLoader(object):
     """
     Load data from json files, preprocess and prepare batches.
     """
-    def __init__(self, filename, batch_size, opt, vocab, evaluation=False):
+    def __init__(self, filename, batch_size, opt, vocab, evaluation=False, apply_filters=False):
         self.batch_size = batch_size
         self.opt = opt
         self.vocab = vocab
         self.eval = evaluation
+        self.apply_filters = apply_filters
         self.label2id = constant.LABEL_TO_ID
 
         with open(filename) as infile:
@@ -43,6 +44,20 @@ class DataLoader(object):
         """ Preprocess the data and convert to ids. """
         processed = []
         for d in data:
+            if self.apply_filters and opt['max_ucca_path'] > 0:
+                ucca_path_len = d['ucca_path_len']
+                # ignore sentence if either it's ucca_path_len is missing (i.e. equal to -1) or
+                # if it's greater than positive opt['max_ucca_path']
+                if ucca_path_len == -1 or ucca_path_len > opt['max_ucca_path']:
+                    continue
+
+            if self.apply_filters and opt['max_ud_path'] > 0:
+                ud_path_len = d['ud_path_len']
+                # ignore sentence if either it's ud_path_len is missing (i.e. equal to -1) or
+                # if it's greater than positive opt['max_ud_path']
+                if ud_path_len == -1 or ud_path_len > opt['max_ud_path']:
+                    continue
+
             tokens = list(d['token'])
             if opt['lower']:
                 tokens = [t.lower() for t in tokens]
