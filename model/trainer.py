@@ -57,6 +57,7 @@ def unpack_batch(batch, cuda):
     subj_pos = batch[6]
     obj_pos = batch[7]
     lens = batch[1].eq(0).long().sum(1).squeeze()
+
     return inputs, labels, tokens, head, subj_pos, obj_pos, lens
 
 class GCNTrainer(Trainer):
@@ -95,6 +96,8 @@ class GCNTrainer(Trainer):
     def predict(self, batch, unsort=True):
         inputs, labels, tokens, head, subj_pos, obj_pos, lens = unpack_batch(batch, self.opt['cuda'])
         orig_idx = batch[11]
+        ids = batch[12]
+
         # forward
         self.model.eval()
         logits, _ = self.model(inputs)
@@ -102,6 +105,5 @@ class GCNTrainer(Trainer):
         probs = F.softmax(logits, 1).data.cpu().numpy().tolist()
         predictions = np.argmax(logits.data.cpu().numpy(), axis=1).tolist()
         if unsort:
-            _, predictions, probs = [list(t) for t in zip(*sorted(zip(orig_idx,\
-                    predictions, probs)))]
-        return predictions, probs, loss.item()
+            _, predictions, probs, ids = [list(t) for t in zip(*sorted(zip(orig_idx, predictions, probs, ids)))]
+        return predictions, probs, loss.item(), ids
