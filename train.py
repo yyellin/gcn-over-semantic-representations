@@ -154,7 +154,7 @@ for epoch in range(1, opt['num_epoch']+1):
     predictions = []
     dev_loss = 0
     for i, batch in enumerate(dev_batch):
-        preds, _, loss = trainer.predict(batch)
+        preds, _, loss, _ = trainer.predict(batch)
         predictions += preds
         dev_loss += loss
     predictions = [id2label[p] for p in predictions]
