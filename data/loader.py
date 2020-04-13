@@ -26,8 +26,7 @@ class DataLoader(object):
         self.raw_data = data
         data = self.preprocess(data, vocab, opt)
 
-        # shuffle for training
-        if not evaluation:
+        if not opt['train_without_shuffling'] and not evaluation:
             indices = list(range(len(data)))
             random.shuffle(indices)
             data = [data[i] for i in indices]
@@ -117,8 +116,8 @@ class DataLoader(object):
         ner = get_long_tensor(batch[2], batch_size)
         deprel = get_long_tensor(batch[3], batch_size)
         head = get_long_tensor(batch[4], batch_size)
-        subj_positions = get_long_tensor(batch[5], batch_size)
-        obj_positions = get_long_tensor(batch[6], batch_size)
+        subj_positions = get_long_tensor(batch[5], batch_size,constant.INFINITY_NUMBER)
+        obj_positions = get_long_tensor(batch[6], batch_size,constant.INFINITY_NUMBER)
         subj_type = get_long_tensor(batch[7], batch_size)
         obj_type = get_long_tensor(batch[8], batch_size)
         rels = torch.LongTensor(batch[9])
@@ -140,10 +139,10 @@ def get_positions(start_idx, end_idx, length):
     return list(range(-start_idx, 0)) + [0]*(end_idx - start_idx + 1) + \
             list(range(1, length-end_idx))
 
-def get_long_tensor(tokens_list, batch_size):
+def get_long_tensor(tokens_list, batch_size, filler=constant.PAD_ID):
     """ Convert list of list of tokens to a padded LongTensor. """
     token_len = max(len(x) for x in tokens_list)
-    tokens = torch.LongTensor(batch_size, token_len).fill_(constant.PAD_ID)
+    tokens = torch.LongTensor(batch_size, token_len).fill_(filler)
     for i, s in enumerate(tokens_list):
         tokens[i, :len(s)] = torch.LongTensor(s)
     return tokens
