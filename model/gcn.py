@@ -162,12 +162,20 @@ class GCN(nn.Module):
         if self.opt.get('no_adj', False):
             adj = torch.zeros_like(adj)
 
+        if self.opt['mask_in_self_loop']:
+            flip_mask = adj.sum(2).gt(0).float().unsqueeze(2)
+
         for l in range(self.layers):
             Ax = adj.bmm(gcn_inputs)
             AxW = self.W[l](Ax)
-            AxW = AxW + self.W[l](gcn_inputs) # self loop
-            AxW = AxW / denom
 
+            if self.opt['mask_in_self_loop']:
+                gcn_inputs_filtered = torch.einsum('bxs,bxy -> bxy', flip_mask, gcn_inputs)
+                AxW = AxW + self.W[l](gcn_inputs_filtered) # self loop
+            else:
+                AxW = AxW + self.W[l](gcn_inputs)
+
+            AxW = AxW / denom
             gAxW = F.relu(AxW)
             gcn_inputs = self.gcn_drop(gAxW) if l < self.layers - 1 else gAxW
 
