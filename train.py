@@ -72,8 +72,8 @@ parser.add_argument('--model_file', type=str, help='Filename of the pretrained m
 parser.add_argument('--max_ud_path', type=int, default=-1, help='Filter sentences with longer UD paths from training; set to -1 for no UCCA path based filtering')
 parser.add_argument('--max_ucca_path', type=int, default=-1, help='Filter sentences with longer UCCA paths from training; set to -1 for no UCCA path based filtering')
 
-parser.add_argument('--train_without_shuffling', type=bool, default=False, help='Should we not shuffle?')
-parser.add_argument('--mask_in_self_loop', type=bool, default=False, help='Mask in self loop?')
+parser.add_argument('--train_without_shuffling', action='store_true', help='Should we not shuffle?')
+parser.add_argument('--mask_in_self_loop', action='store_true', help='Mask in self loop?')
 
 
 args = parser.parse_args()
