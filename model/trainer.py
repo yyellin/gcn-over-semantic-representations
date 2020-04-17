@@ -47,11 +47,11 @@ class Trainer(object):
 
 def unpack_batch(batch, cuda):
     if cuda:
-        inputs = [Variable(b.cuda()) for b in batch[:10]]
-        labels = Variable(batch[10].cuda())
+        inputs = [Variable(b.cuda()) for b in batch[:11]]
+        labels = Variable(batch[11].cuda())
     else:
-        inputs = [Variable(b) for b in batch[:10]]
-        labels = Variable(batch[10])
+        inputs = [Variable(b) for b in batch[:11]]
+        labels = Variable(batch[11])
     tokens = batch[0]
     head = batch[5]
     subj_pos = batch[6]
@@ -95,8 +95,8 @@ class GCNTrainer(Trainer):
 
     def predict(self, batch, unsort=True):
         inputs, labels, tokens, head, subj_pos, obj_pos, lens = unpack_batch(batch, self.opt['cuda'])
-        orig_idx = batch[11]
-        ids = batch[12]
+        orig_idx = batch[12]
+        ids = batch[13]
 
         # forward
         self.model.eval()

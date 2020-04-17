@@ -74,6 +74,7 @@ parser.add_argument('--max_ucca_path', type=int, default=-1, help='Filter senten
 
 parser.add_argument('--train_without_shuffling', action='store_true', help='Should we not shuffle?')
 parser.add_argument('--mask_in_self_loop', action='store_true', help='Mask in self loop?')
+parser.add_argument('--use_ucca_words_on_path', action='store_true', help='Use UCCA words on path?')
 
 
 args = parser.parse_args()

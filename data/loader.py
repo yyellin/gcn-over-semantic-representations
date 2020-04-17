@@ -43,20 +43,20 @@ class DataLoader(object):
         """ Preprocess the data and convert to ids. """
         processed = []
         for d in data:
+            # if apply_filters set skip sentences with ucca_path_len that exceed max_ucca_path
             if self.apply_filters and opt['max_ucca_path'] > 0:
                 ucca_path_len = d['ucca_path_len']
                 # ignore sentence if either it's ucca_path_len is missing (i.e. equal to -1) or
                 # if it's greater than positive opt['max_ucca_path']
                 if ucca_path_len == -1 or ucca_path_len > opt['max_ucca_path']:
                     continue
-
+            # if apply_filters set skip sentences with ud_path_len that exceed max_ud_path
             if self.apply_filters and opt['max_ud_path'] > 0:
                 ud_path_len = d['ud_path_len']
                 # ignore sentence if either it's ud_path_len is missing (i.e. equal to -1) or
                 # if it's greater than positive opt['max_ud_path']
                 if ud_path_len == -1 or ud_path_len > opt['max_ud_path']:
                     continue
-
             tokens = list(d['token'])
             if opt['lower']:
                 tokens = [t.lower() for t in tokens]
@@ -77,8 +77,16 @@ class DataLoader(object):
             subj_type = [constant.SUBJ_NER_TO_ID[d['subj_type']]]
             obj_type = [constant.OBJ_NER_TO_ID[d['obj_type']]]
             relation = self.label2id[d['relation']]
-            id = d['id']
-            processed += [(tokens, pos, ner, deprel, head, subj_positions, obj_positions, subj_type, obj_type, relation, id)]
+            # capture UCCA tokens on path
+            if opt['use_ucca_words_on_path']:
+                assert('ucca_words_on_path' in d)
+                ucca_words_on_path = d['ucca_words_on_path'] if d['ucca_words_on_path']  is not None else []
+                path_mask = [1 if i in ucca_words_on_path else 0 for i in range(0,l)]
+            else:
+                path_mask = [0] * l
+            # capture id so that we can propagate through model
+            tacred_id = d['id']
+            processed += [(tokens, pos, ner, deprel, head, subj_positions, obj_positions, subj_type, obj_type, path_mask, relation, tacred_id)]
         return processed
 
     def gold(self):
@@ -97,7 +105,7 @@ class DataLoader(object):
         batch = self.data[key]
         batch_size = len(batch)
         batch = list(zip(*batch))
-        assert len(batch) == 11
+        assert len(batch) == 12
 
         # sort all fields by lens for easy RNN operations
         lens = [len(x) for x in batch[0]]
@@ -120,11 +128,13 @@ class DataLoader(object):
         obj_positions = get_long_tensor(batch[6], batch_size)
         subj_type = get_long_tensor(batch[7], batch_size)
         obj_type = get_long_tensor(batch[8], batch_size)
-        rels = torch.LongTensor(batch[9])
+        path_masks = get_float_tensor(batch[9], batch_size)
+        rels = torch.LongTensor(batch[10])
 
-        ids = batch[10]
+        # don't forget to propogate TACRED ids ..
+        tacred_ids = batch[11]
 
-        return (words, masks, pos, ner, deprel, head, subj_positions, obj_positions, subj_type, obj_type, rels, orig_idx, ids)
+        return (words, masks, pos, ner, deprel, head, subj_positions, obj_positions, subj_type, obj_type, path_masks, rels, orig_idx, tacred_ids)
 
     def __iter__(self):
         for i in range(self.__len__()):
@@ -146,6 +156,15 @@ def get_long_tensor(tokens_list, batch_size, filler=constant.PAD_ID):
     for i, s in enumerate(tokens_list):
         tokens[i, :len(s)] = torch.LongTensor(s)
     return tokens
+
+def get_float_tensor(tokens_list, batch_size, filler=constant.PAD_ID):
+    """ Convert list of list of tokens to a padded LongTensor. """
+    token_len = max(len(x) for x in tokens_list)
+    tokens = torch.FloatTensor(batch_size, token_len).fill_(filler)
+    for i, s in enumerate(tokens_list):
+        tokens[i, :len(s)] = torch.FloatTensor(s)
+    return tokens
+
 
 def sort_all(batch, lens):
     """ Sort all fields by descending order of lens, and return the original indices. """
