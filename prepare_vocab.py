@@ -1,6 +1,7 @@
 """
 Prepare vocabulary and initial word vectors.
 """
+import itertools
 import json
 import pickle
 import argparse
@@ -52,7 +53,7 @@ def main():
     print("{} words loaded from glove.".format(len(glove_vocab)))
     
     print("building vocab...")
-    v = build_vocab(train_tokens, glove_vocab, args.min_freq)
+    v = build_vocab(itertools.chain(train_tokens, dev_tokens, test_tokens), glove_vocab, args.min_freq)
 
     print("calculating oov...")
     datasets = {'train': train_tokens, 'dev': dev_tokens, 'test': test_tokens}

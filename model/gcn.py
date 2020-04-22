@@ -10,12 +10,14 @@ import numpy as np
 
 from model.tree import Tree, head_to_tree, tree_to_adj
 from utils import constant, torch_utils
+from utils.ucca_embedding import UccaEmbedding
+
 
 class GCNClassifier(nn.Module):
     """ A wrapper classifier for GCNRelationModel. """
-    def __init__(self, opt, emb_matrix=None):
+    def __init__(self, opt, emb_matrix=None, ucca_embedding_matrix=None):
         super().__init__()
-        self.gcn_model = GCNRelationModel(opt, emb_matrix=emb_matrix)
+        self.gcn_model = GCNRelationModel(opt, emb_matrix=emb_matrix, ucca_embedding_matrix=ucca_embedding_matrix)
         in_dim = opt['hidden_dim']
         self.classifier = nn.Linear(in_dim, opt['num_class'])
         self.opt = opt
@@ -29,16 +31,19 @@ class GCNClassifier(nn.Module):
         return logits, pooling_output
 
 class GCNRelationModel(nn.Module):
-    def __init__(self, opt, emb_matrix=None):
+    def __init__(self, opt, emb_matrix=None, ucca_embedding_matrix=None):
         super().__init__()
         self.opt = opt
         self.emb_matrix = emb_matrix
+        self.ucca_embedding_matrix = ucca_embedding_matrix
 
         # create embedding layers
         self.emb = nn.Embedding(opt['vocab_size'], opt['emb_dim'], padding_idx=constant.PAD_ID)
         self.pos_emb = nn.Embedding(len(constant.POS_TO_ID), opt['pos_dim']) if opt['pos_dim'] > 0 else None
         self.ner_emb = nn.Embedding(len(constant.NER_TO_ID), opt['ner_dim']) if opt['ner_dim'] > 0 else None
-        embeddings = (self.emb, self.pos_emb, self.ner_emb)
+        self.ucca_emb = nn.Embedding(ucca_embedding_matrix.shape[0], ucca_embedding_matrix.shape[1]) if opt['ucca_dim'] > 0 else None
+
+        embeddings = (self.emb, self.pos_emb, self.ner_emb, self.ucca_emb)
         self.init_embeddings()
 
         # gcn layer
@@ -57,7 +62,12 @@ class GCNRelationModel(nn.Module):
         else:
             self.emb_matrix = torch.from_numpy(self.emb_matrix)
             self.emb.weight.data.copy_(self.emb_matrix)
-        # decide finetuning
+
+        if not self.ucca_embedding_matrix is None:
+            self.ucca_embedding_matrix = torch.from_numpy(self.ucca_embedding_matrix)
+            self.ucca_emb.weight.data.copy_(self.ucca_embedding_matrix)
+
+        # decide finetuning (for word embeddings, not the other embeddings)
         if self.opt['topn'] <= 0:
             print("Do not finetune word embedding layer.")
             self.emb.weight.requires_grad = False
@@ -68,25 +78,22 @@ class GCNRelationModel(nn.Module):
         else:
             print("Finetune all embeddings.")
 
+
+
     def forward(self, inputs):
         words, masks, pos, ner, deprel, head, subj_pos, obj_pos, subj_type, obj_type, path_mask  = inputs # unpack
         l = (masks.data.cpu().numpy() == 0).astype(np.int64).sum(1)
         maxlen = max(l)
 
-        if not self.opt['use_ucca_words_on_path']:
-            def inputs_to_tree_reps(head, words, l, prune, subj_pos, obj_pos):
-                head, words, subj_pos, obj_pos = head.cpu().numpy(), words.cpu().numpy(), subj_pos.cpu().numpy(), obj_pos.cpu().numpy()
-                trees = [head_to_tree(head[i], words[i], l[i], prune, subj_pos[i], obj_pos[i]) for i in range(len(l))]
-                adj = [tree_to_adj(maxlen, tree, directed=False, self_loop=False).reshape(1, maxlen, maxlen) for tree in trees]
-                adj = np.concatenate(adj, axis=0)
-                adj = torch.from_numpy(adj)
-                return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
+        def inputs_to_tree_reps(head, words, l, prune, subj_pos, obj_pos):
+            head, words, subj_pos, obj_pos = head.cpu().numpy(), words.cpu().numpy(), subj_pos.cpu().numpy(), obj_pos.cpu().numpy()
+            trees = [head_to_tree(head[i], words[i], l[i], prune, subj_pos[i], obj_pos[i]) for i in range(len(l))]
+            adj = [tree_to_adj(maxlen, tree, directed=False, self_loop=False).reshape(1, maxlen, maxlen) for tree in trees]
+            adj = np.concatenate(adj, axis=0)
+            adj = torch.from_numpy(adj)
+            return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
 
-            adj = inputs_to_tree_reps(head.data, words.data, l, self.opt['prune_k'], subj_pos.data, obj_pos.data)
-        else:
-            adj = torch.einsum('bs,by -> bsy', path_mask, path_mask) - torch.diag_embed(path_mask)
-            adj = Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
-
+        adj = inputs_to_tree_reps(head.data, words.data, l, self.opt['prune_k'], subj_pos.data, obj_pos.data)
         h, pool_mask = self.gcn(adj, inputs)
         
         # pooling
@@ -112,9 +119,9 @@ class GCN(nn.Module):
         self.layers = num_layers
         self.use_cuda = opt['cuda']
         self.mem_dim = mem_dim
-        self.in_dim = opt['emb_dim'] + opt['pos_dim'] + opt['ner_dim']
+        self.in_dim = opt['emb_dim'] + opt['pos_dim'] + opt['ner_dim'] + opt['ucca_dim']
 
-        self.emb, self.pos_emb, self.ner_emb = embeddings
+        self.emb, self.pos_emb, self.ner_emb, self.ucca_emb = embeddings
 
         # rnn layer
         if self.opt.get('rnn', False):
@@ -149,13 +156,17 @@ class GCN(nn.Module):
         return rnn_outputs
 
     def forward(self, adj, inputs):
-        words, masks, pos, ner, deprel, head, subj_pos, obj_pos, subj_type, obj_type, path_masks = inputs # unpack
+        words, masks, pos, ner, deprel, head, subj_pos, obj_pos, subj_type, obj_type, ucca_encoding = inputs # unpack
         word_embs = self.emb(words)
         embs = [word_embs]
         if self.opt['pos_dim'] > 0:
             embs += [self.pos_emb(pos)]
         if self.opt['ner_dim'] > 0:
             embs += [self.ner_emb(ner)]
+        if self.opt['ucca_dim'] > 0:
+            embs += [self.ucca_emb(ucca_encoding)]
+
+
         embs = torch.cat(embs, dim=2)
         embs = self.in_drop(embs)
 

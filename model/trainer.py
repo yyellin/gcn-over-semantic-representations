@@ -61,10 +61,11 @@ def unpack_batch(batch, cuda):
     return inputs, labels, tokens, head, subj_pos, obj_pos, lens
 
 class GCNTrainer(Trainer):
-    def __init__(self, opt, emb_matrix=None):
+    def __init__(self, opt, emb_matrix=None, ucca_embedding_matrix=None):
         self.opt = opt
         self.emb_matrix = emb_matrix
-        self.model = GCNClassifier(opt, emb_matrix=emb_matrix)
+        self.ucca_embedding_matrix = ucca_embedding_matrix
+        self.model = GCNClassifier(opt, emb_matrix=emb_matrix, ucca_embedding_matrix=ucca_embedding_matrix)
         self.criterion = nn.CrossEntropyLoss()
         self.parameters = [p for p in self.model.parameters() if p.requires_grad]
         if opt['cuda']:

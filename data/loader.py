@@ -7,19 +7,21 @@ import random
 import torch
 import numpy as np
 
+from utils.ucca_embedding import UccaEmbedding
 from utils import constant, helper, vocab
 
 class DataLoader(object):
     """
     Load data from json files, preprocess and prepare batches.
     """
-    def __init__(self, filename, batch_size, opt, vocab, evaluation=False, apply_filters=False):
+    def __init__(self, filename, batch_size, opt, vocab, evaluation=False, apply_filters=False, ucca_embedding=None):
         self.batch_size = batch_size
         self.opt = opt
         self.vocab = vocab
         self.eval = evaluation
         self.apply_filters = apply_filters
         self.label2id = constant.LABEL_TO_ID
+        self.ucca_embedding = ucca_embedding
 
         with open(filename) as infile:
             data = json.load(infile)
@@ -41,8 +43,11 @@ class DataLoader(object):
 
     def preprocess(self, data, vocab, opt):
         """ Preprocess the data and convert to ids. """
+
         processed = []
+
         for d in data:
+
             # if apply_filters set skip sentences with ucca_path_len that exceed max_ucca_path
             if self.apply_filters and opt['max_ucca_path'] > 0:
                 ucca_path_len = d['ucca_path_len']
@@ -57,36 +62,53 @@ class DataLoader(object):
                 # if it's greater than positive opt['max_ud_path']
                 if ud_path_len == -1 or ud_path_len > opt['max_ud_path']:
                     continue
+
             tokens = list(d['token'])
             if opt['lower']:
                 tokens = [t.lower() for t in tokens]
+
+            l = len(tokens)
+
             # anonymize tokens
             ss, se = d['subj_start'], d['subj_end']
             os, oe = d['obj_start'], d['obj_end']
             tokens[ss:se+1] = ['SUBJ-'+d['subj_type']] * (se-ss+1)
             tokens[os:oe+1] = ['OBJ-'+d['obj_type']] * (oe-os+1)
             tokens = map_to_ids(tokens, vocab.word2id)
+
             pos = map_to_ids(d['stanford_pos'], constant.POS_TO_ID)
             ner = map_to_ids(d['stanford_ner'], constant.NER_TO_ID)
             deprel = map_to_ids(d['stanford_deprel'], constant.DEPREL_TO_ID)
+
             head = [int(x) for x in d['stanford_head']]
             assert any([x == 0 for x in head])
-            l = len(tokens)
+
             subj_positions = get_positions(d['subj_start'], d['subj_end'], l)
             obj_positions = get_positions(d['obj_start'], d['obj_end'], l)
             subj_type = [constant.SUBJ_NER_TO_ID[d['subj_type']]]
             obj_type = [constant.OBJ_NER_TO_ID[d['obj_type']]]
+
             relation = self.label2id[d['relation']]
-            # capture UCCA tokens on path
-            if opt['use_ucca_words_on_path']:
-                assert('ucca_words_on_path' in d)
-                ucca_words_on_path = d['ucca_words_on_path'] if d['ucca_words_on_path']  is not None else []
-                path_mask = [1 if i in ucca_words_on_path else 0 for i in range(0,l)]
-            else:
-                path_mask = [0] * l
+
+            # capture UCCA encoding
+            ucca_encodings_for_min_subtree = []
+            if opt['ucca_dim'] > 0:
+                assert('ucca_encodings_min_subtree' in d)
+
+                index_to_encoding = {int(k):v for k,v in d['ucca_encodings_min_subtree'].items()} if d['ucca_encodings_min_subtree'] is not None else {}
+                ucca_encodings_for_min_subtree = []
+
+                for index in range(0, len(tokens)):
+                    if index in index_to_encoding:
+                        ucca_encodings_for_min_subtree.append(self.ucca_embedding.get_index(index_to_encoding[index]))
+                    else:
+                        ucca_encodings_for_min_subtree.append(self.ucca_embedding.get_index(''))
+
             # capture id so that we can propagate through model
             tacred_id = d['id']
-            processed += [(tokens, pos, ner, deprel, head, subj_positions, obj_positions, subj_type, obj_type, path_mask, relation, tacred_id)]
+
+            processed += [(tokens, pos, ner, deprel, head, subj_positions, obj_positions, subj_type, obj_type, ucca_encodings_for_min_subtree, relation, tacred_id)]
+
         return processed
 
     def gold(self):
@@ -128,13 +150,13 @@ class DataLoader(object):
         obj_positions = get_long_tensor(batch[6], batch_size)
         subj_type = get_long_tensor(batch[7], batch_size)
         obj_type = get_long_tensor(batch[8], batch_size)
-        path_masks = get_float_tensor(batch[9], batch_size)
+        ucca_encodings = get_long_tensor(batch[9], batch_size)
         rels = torch.LongTensor(batch[10])
 
         # don't forget to propogate TACRED ids ..
         tacred_ids = batch[11]
 
-        return (words, masks, pos, ner, deprel, head, subj_positions, obj_positions, subj_type, obj_type, path_masks, rels, orig_idx, tacred_ids)
+        return (words, masks, pos, ner, deprel, head, subj_positions, obj_positions, subj_type, obj_type, ucca_encodings, rels, orig_idx, tacred_ids)
 
     def __iter__(self):
         for i in range(self.__len__()):

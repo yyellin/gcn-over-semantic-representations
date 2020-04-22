@@ -19,6 +19,7 @@ from data.loader import DataLoader
 from model.trainer import GCNTrainer
 from utils import torch_utils, scorer, constant, helper
 from utils.vocab import Vocab
+from utils.ucca_embedding import UccaEmbedding
 
 parser = argparse.ArgumentParser()
 parser.add_argument('--data_dir', type=str, default='dataset/tacred')
@@ -74,8 +75,10 @@ parser.add_argument('--max_ucca_path', type=int, default=-1, help='Filter senten
 
 parser.add_argument('--train_without_shuffling', action='store_true', help='Should we not shuffle?')
 parser.add_argument('--mask_in_self_loop', action='store_true', help='Mask in self loop?')
-parser.add_argument('--use_ucca_words_on_path', action='store_true', help='Use UCCA words on path?')
-
+parser.add_argument('--ucca_dim', type=int, default=0, help='UCCA Path to Root Emdedding vector dimension.')
+parser.add_argument('--ucca_embedding_dir', default=r'C:\Users\JYellin\re_1\tacred\ucca-embedding', help='Output vocab directory.')
+parser.add_argument('--ucca_embedding_file', default='ucca_path_embeddings', help='UCCA Path to Root Embedding vector file')
+parser.add_argument('--ucca_embedding_index_file', default='ucca_path_embedding_index', help='UCCA Path to Root Embedding vector file')
 
 args = parser.parse_args()
 
@@ -102,10 +105,18 @@ emb_matrix = np.load(emb_file)
 assert emb_matrix.shape[0] == vocab.size
 assert emb_matrix.shape[1] == opt['emb_dim']
 
+# UCCA Embedding?
+if args.ucca_dim > 0:
+    embedding_file = args.ucca_embedding_dir + '/' + args.ucca_embedding_file
+    index_file = args.ucca_embedding_dir + '/' +  args.ucca_embedding_index_file
+    ucca_embedding =  UccaEmbedding(args.ucca_dim, index_file, embedding_file)
+
+
+
 # load data
 print("Loading data from {} with batch size {}...".format(opt['data_dir'], opt['batch_size']))
-train_batch = DataLoader(opt['data_dir'] + '/train.json', opt['batch_size'], opt, vocab, evaluation=False, apply_filters=True)
-dev_batch = DataLoader(opt['data_dir'] + '/dev.json', opt['batch_size'], opt, vocab, evaluation=True, apply_filters=True)
+train_batch = DataLoader(opt['data_dir'] + '/train.json', opt['batch_size'], opt, vocab, evaluation=False, apply_filters=True, ucca_embedding=ucca_embedding)
+dev_batch = DataLoader(opt['data_dir'] + '/dev.json', opt['batch_size'], opt, vocab, evaluation=True, apply_filters=True, ucca_embedding=ucca_embedding)
 
 model_id = opt['id'] if len(opt['id']) > 1 else '0' + opt['id']
 model_save_dir = opt['save_dir'] + '/' + model_id
@@ -122,7 +133,7 @@ helper.print_config(opt)
 
 # model
 if not opt['load']:
-    trainer = GCNTrainer(opt, emb_matrix=emb_matrix)
+    trainer = GCNTrainer(opt, emb_matrix=emb_matrix, ucca_embedding_matrix=ucca_embedding.embedding_matrix)
 else:
     # load pretrained model
     model_file = opt['model_file'] 
