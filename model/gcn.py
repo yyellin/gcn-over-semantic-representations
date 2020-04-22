@@ -98,10 +98,12 @@ class GCNRelationModel(nn.Module):
         
         # pooling
         subj_mask = subj_pos.eq(0).eq(0).unsqueeze(2) # invert mask
-        subj_mask = ~(~subj_mask & ~pool_mask)
-
         obj_mask = obj_pos.eq(0).eq(0).unsqueeze(2) # invert mask
-        obj_mask = ~(~obj_mask & ~pool_mask)
+
+        if self.opt['fix_subj_obj_mask_bug']:
+            subj_mask = ~(~subj_mask & ~pool_mask)
+            obj_mask = ~(~obj_mask & ~pool_mask)
+
 
         pool_type = self.opt['pooling']
         h_out = pool(h, pool_mask, type=pool_type)
@@ -194,7 +196,7 @@ class GCN(nn.Module):
                 gcn_inputs_filtered = torch.einsum('bxs,bxy -> bxy', flip_mask, gcn_inputs)
                 AxW = AxW + self.W[l](gcn_inputs_filtered) # self loop
             else:
-                AxW = AxW + self.W[l](gcn_inputs)
+                AxW = AxW + self.W[l](gcn_inputs) # self loop
 
             AxW = AxW / denom
             gAxW = F.relu(AxW)
