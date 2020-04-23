@@ -11,6 +11,7 @@ from data.loader import DataLoader
 from model.trainer import GCNTrainer
 from utils import torch_utils, scorer, constant, helper
 from utils.vocab import Vocab
+from utils.ucca_embedding import UccaEmbedding
 
 parser = argparse.ArgumentParser()
 parser.add_argument('model_dir', type=str, help='Directory of the model.')
@@ -51,10 +52,18 @@ vocab_file = args.model_dir + '/vocab.pkl'
 vocab = Vocab(vocab_file, load=True)
 assert opt['vocab_size'] == vocab.size, "Vocab size must match that in the saved model."
 
+# UCCA Embedding?
+ucca_embedding = None
+if args.ucca_dim > 0:
+    embedding_file = args.ucca_embedding_dir + '/' + args.ucca_embedding_file
+    index_file = args.ucca_embedding_dir + '/' +  args.ucca_embedding_index_file
+    ucca_embedding =  UccaEmbedding(args.ucca_dim, index_file, embedding_file)
+
+
 # load data
 data_file = opt['data_dir'] + '/{}.json'.format(args.dataset)
 print("Loading data from {} with batch size {}...".format(data_file, opt['batch_size']))
-batch = DataLoader(data_file, opt['batch_size'], opt, vocab, evaluation=True)
+batch = DataLoader(data_file, opt['batch_size'], opt, vocab, evaluation=True, ucca_embedding=ucca_embedding)
 
 helper.print_config(opt)
 label2id = constant.LABEL_TO_ID
