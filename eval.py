@@ -57,7 +57,7 @@ ucca_embedding = None
 if opt['ucca_dim'] > 0:
     embedding_file = opt['ucca_embedding_dir'] + '/' + opt['ucca_embedding_file']
     index_file = opt['ucca_embedding_dir'] + '/' +  opt['ucca_embedding_index_file']
-    ucca_embedding =  UccaEmbedding(args.ucca_dim, index_file, embedding_file)
+    ucca_embedding =  UccaEmbedding(opt['ucca_dim'], index_file, embedding_file)
 
 
 # load data
