@@ -54,7 +54,7 @@ assert opt['vocab_size'] == vocab.size, "Vocab size must match that in the saved
 
 # UCCA Embedding?
 ucca_embedding = None
-if args.ucca_dim > 0:
+if opt['ucca_dim'] > 0:
     embedding_file = args.ucca_embedding_dir + '/' + args.ucca_embedding_file
     index_file = args.ucca_embedding_dir + '/' +  args.ucca_embedding_index_file
     ucca_embedding =  UccaEmbedding(args.ucca_dim, index_file, embedding_file)
