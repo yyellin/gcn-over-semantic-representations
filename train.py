@@ -82,6 +82,7 @@ parser.add_argument('--ucca_dim', type=int, default=0, help='UCCA Path to Root E
 parser.add_argument('--ucca_embedding_dir', default=r'C:\Users\JYellin\re_1\tacred\ucca-embedding', help='Output vocab directory.')
 parser.add_argument('--ucca_embedding_file', default='ucca_path_embeddings', help='UCCA Path to Root Embedding vector file')
 parser.add_argument('--ucca_embedding_index_file', default='ucca_path_embedding_index', help='UCCA Path to Root Embedding vector file')
+parser.add_argument('--ucca_embedding_ignore', action='store_true', help='Do not initialize UCCA embedding with prepared matrix')
 
 args = parser.parse_args()
 
@@ -113,8 +114,8 @@ if args.ucca_dim > 0:
     embedding_file = args.ucca_embedding_dir + '/' + args.ucca_embedding_file
     index_file = args.ucca_embedding_dir + '/' +  args.ucca_embedding_index_file
     ucca_embedding =  UccaEmbedding(args.ucca_dim, index_file, embedding_file)
-
-
+    opt['ucca_embedding_vocab_size'] = ucca_embedding.embedding_matrix.shape[0]
+    assert ucca_embedding.embedding_matrix.shape[1] == args.ucca_dim
 
 # load data
 print("Loading data from {} with batch size {}...".format(opt['data_dir'], opt['batch_size']))

@@ -41,7 +41,7 @@ class GCNRelationModel(nn.Module):
         self.emb = nn.Embedding(opt['vocab_size'], opt['emb_dim'], padding_idx=constant.PAD_ID)
         self.pos_emb = nn.Embedding(len(constant.POS_TO_ID), opt['pos_dim']) if opt['pos_dim'] > 0 else None
         self.ner_emb = nn.Embedding(len(constant.NER_TO_ID), opt['ner_dim']) if opt['ner_dim'] > 0 else None
-        self.ucca_emb = nn.Embedding(ucca_embedding_matrix.shape[0], ucca_embedding_matrix.shape[1]) if opt['ucca_dim'] > 0 else None
+        self.ucca_emb = nn.Embedding(opt['ucca_embedding_vocab_size'], opt['ucca_dim']) if opt['ucca_dim'] > 0 else None
 
         embeddings = (self.emb, self.pos_emb, self.ner_emb, self.ucca_emb)
         self.init_embeddings()
@@ -63,7 +63,7 @@ class GCNRelationModel(nn.Module):
             self.emb_matrix = torch.from_numpy(self.emb_matrix)
             self.emb.weight.data.copy_(self.emb_matrix)
 
-        if not self.ucca_embedding_matrix is None:
+        if not self.opt['ucca_embedding_ignore'] and not self.ucca_embedding_matrix is None:
             self.ucca_embedding_matrix = torch.from_numpy(self.ucca_embedding_matrix)
             self.ucca_emb.weight.data.copy_(self.ucca_embedding_matrix)
 
