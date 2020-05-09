@@ -7,3 +7,6 @@ __pycache__/
 *.tmp
 *.conf
 
+/dataset/tacred/*
+/dataset/ucca-embedding/*
+/dataset/vocab/*
