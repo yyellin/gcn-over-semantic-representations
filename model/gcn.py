@@ -7,6 +7,8 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
+import itertools
+import networkx
 
 from model.tree import Tree, head_to_tree, tree_to_adj
 from utils import constant, torch_utils
@@ -81,7 +83,7 @@ class GCNRelationModel(nn.Module):
 
 
     def forward(self, inputs):
-        words, masks, pos, ner, deprel, head, subj_pos, obj_pos, subj_type, obj_type, path_mask  = inputs # unpack
+        words, masks, pos, ner, deprel, head, subj_pos, obj_pos, subj_type, obj_type, ucca_encoding = inputs # unpack
         l = (masks.data.cpu().numpy() == 0).astype(np.int64).sum(1)
         maxlen = max(l)
 
@@ -93,7 +95,69 @@ class GCNRelationModel(nn.Module):
             adj = torch.from_numpy(adj)
             return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
 
-        adj = inputs_to_tree_reps(head.data, words.data, l, self.opt['prune_k'], subj_pos.data, obj_pos.data)
+        def ucca_inputs_to_tree_reps(ucca_head, l, prune, subj_pos, obj_pos):
+            batch_len = len(ucca_head)
+            ucca_heads, subj_pos, obj_pos = ucca_head.cpu().numpy(),  subj_pos.cpu().numpy(), obj_pos.cpu().numpy()
+            adj_matrices = []
+
+            for sent_idx in range(batch_len):
+                sentence_length = l[sent_idx]
+                adj_matrix = np.zeros((maxlen, maxlen), dtype=np.float32)
+                subj = [token_id for token_id in range(sentence_length) if subj_pos[sent_idx][token_id] == 0]
+                obj= [token_id for token_id in range(sentence_length) if obj_pos[sent_idx][token_id] == 0]
+                edges = {(ucca_heads[sent_idx][token_id]-1, token_id):True for token_id in range(sentence_length)}
+
+                extended_edges = edges.copy()
+                for edge in itertools.combinations(subj, 2):
+                    extended_edges[edge] = True
+                for edge in itertools.combinations(obj, 2):
+                    extended_edges[edge] = True
+
+                graph = networkx.Graph(list(extended_edges.keys()))
+                try:
+                    on_path = networkx.shortest_path(graph, source=subj[0], target=obj[0])
+                except networkx.NetworkXNoPath:
+                    #adj_matrix = np.ones((maxlen, maxlen), dtype=np.float32)
+                    print('shit')
+                    adj_matrices.append(adj_matrix.reshape(1, maxlen, maxlen))
+                    continue
+
+                all_shortest_paths_lengths = {start: targets for start, targets in networkx.shortest_path_length(graph)}
+
+                token_distances = []
+                for token_id in range(sentence_length):
+                    distance = 0
+                    if token_id not in on_path:
+                        distances_to_path = {target: distance_to_target
+                                             for target, distance_to_target in all_shortest_paths_lengths[token_id].items()
+                                             if target in on_path}
+                        distance = min(distances_to_path.values(), default=constant.INFINITY_NUMBER)
+
+                    token_distances.append(distance)
+
+                dgraph = networkx.DiGraph(list(edges.keys()))
+                for i in dgraph.nodes():
+                    if i >= 0 and token_distances[i] <= prune:
+                        for j in dgraph.successors(i):
+                            if j >= 0 and token_distances[j] <= prune:
+                                adj_matrix[i, j] = 1
+                adj_matrix = adj_matrix + adj_matrix.T
+
+                adj_matrices.append(adj_matrix.reshape(1, maxlen, maxlen))
+
+
+
+
+
+                #adj = [tree_to_adj(maxlen, tree, directed=False, self_loop=False).reshape(1, maxlen, maxlen) for tree in trees]
+
+            adj = np.concatenate(adj_matrices, axis=0)
+            adj = torch.from_numpy(adj)
+            return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
+
+        adj = inputs_to_tree_reps(head.data,  words.data, l, self.opt['prune_k'], subj_pos.data, obj_pos.data)
+        #adj = ucca_inputs_to_tree_reps(head.data,  l, self.opt['prune_k'], subj_pos.data, obj_pos.data)
+
         h, pool_mask = self.gcn(adj, inputs)
         
         # pooling

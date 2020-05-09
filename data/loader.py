@@ -63,11 +63,18 @@ class DataLoader(object):
                 if ud_path_len == -1 or ud_path_len > opt['max_ud_path']:
                     continue
 
-            tokens = list(d['token'])
+
+            tac_to_ucca = { int(key):val for key, val in d['tac_to_ucca'].items() }
+            tokens = list(d['ucca_tokens'])
+            l = len(tokens)
+
             if opt['lower']:
                 tokens = [t.lower() for t in tokens]
 
-            l = len(tokens)
+            d['subj_start'] = tac_to_ucca[d['subj_start']][0]
+            d['subj_end'] = tac_to_ucca[d['subj_end']][-1]
+            d['obj_start'] = tac_to_ucca[d['obj_start']][0]
+            d['obj_end'] = tac_to_ucca[d['obj_end']][-1]
 
             # anonymize tokens
             ss, se = d['subj_start'], d['subj_end']
@@ -76,14 +83,30 @@ class DataLoader(object):
             tokens[os:oe+1] = ['OBJ-'+d['obj_type']] * (oe-os+1)
             tokens = map_to_ids(tokens, vocab.word2id)
 
+
+            ucca_standford_pos_dict = { ucca_token:pos for tac_token, pos in enumerate(d['stanford_pos']) for ucca_token in tac_to_ucca[tac_token]}
+            d['stanford_pos'] = [pos for key, pos in sorted(ucca_standford_pos_dict.items())]
+
+            ucca_standford_ner_dict = { ucca_token:ner for tac_token, ner in enumerate(d['stanford_ner']) for ucca_token in tac_to_ucca[tac_token]}
+            d['stanford_ner'] = [ner for key, ner in sorted(ucca_standford_ner_dict.items())]
+
+            ucca_standford_deprel_dict = { ucca_token:deprel for tac_token, deprel in enumerate(d['stanford_deprel']) for ucca_token in tac_to_ucca[tac_token]}
+            d['stanford_deprel'] = [deprel for key, deprel in sorted(ucca_standford_deprel_dict.items())]
+
             pos = map_to_ids(d['stanford_pos'], constant.POS_TO_ID)
             ner = map_to_ids(d['stanford_ner'], constant.NER_TO_ID)
             deprel = map_to_ids(d['stanford_deprel'], constant.DEPREL_TO_ID)
 
-            head = [int(x) for x in d['stanford_head']]
-            assert any([x == 0 for x in head])
+            heads = [int(x) for x in d['ucca_heads']]
+            # It's possible that more than one terminal have ROOT as their head; we assign
+            # the heads of all such tokens following the first one to be the index of the first
+            # one (if we don't the GCN's 'head_to_tree' algorithm breaks down)
+            tokens_with_zero_heads = [i for i, head in enumerate(heads) if head == 0]
+            assert len(tokens_with_zero_heads) > 0
+            for i in tokens_with_zero_heads[1:]:
+                heads[i] = tokens_with_zero_heads[0]+1
 
-            subj_positions = get_positions(d['subj_start'], d['subj_end'], l)
+            subj_positions = get_positions(d['subj_start'], d['squbj_end'], l)
             obj_positions = get_positions(d['obj_start'], d['obj_end'], l)
             subj_type = [constant.SUBJ_NER_TO_ID[d['subj_type']]]
             obj_type = [constant.OBJ_NER_TO_ID[d['obj_type']]]
@@ -104,10 +127,11 @@ class DataLoader(object):
                     else:
                         ucca_encodings_for_min_subtree.append(self.ucca_embedding.get_index(''))
 
+
             # capture id so that we can propagate through model
             tacred_id = d['id']
 
-            processed += [(tokens, pos, ner, deprel, head, subj_positions, obj_positions, subj_type, obj_type, ucca_encodings_for_min_subtree, relation, tacred_id)]
+            processed += [(tokens, pos, ner, deprel, heads, subj_positions, obj_positions, subj_type, obj_type, ucca_encodings_for_min_subtree, relation, tacred_id)]
 
         return processed
 

@@ -76,8 +76,14 @@ def load_tokens(filename):
         data = json.load(infile)
         tokens = []
         for d in data:
-            ts = d['token']
-            ss, se, os, oe = d['subj_start'], d['subj_end'], d['obj_start'], d['obj_end']
+            ts = d['ucca_tokens']
+
+            tac_to_ucca = { int(key):val for key, val in d['tac_to_ucca'].items() }
+            ss = tac_to_ucca[d['subj_start']][0]
+            se = tac_to_ucca[d['subj_end']][-1]
+            os = tac_to_ucca[d['obj_start']][0]
+            oe = tac_to_ucca[d['obj_end']][-1]
+
             # do not create vocab for entity words
             ts[ss:se+1] = ['<PAD>']*(se-ss+1)
             ts[os:oe+1] = ['<PAD>']*(oe-os+1)

@@ -77,9 +77,9 @@ parser.add_argument('--train_without_shuffling', action='store_true', help='Shou
 parser.add_argument('--mask_in_self_loop', action='store_true', help='Mask in self loop?')
 parser.add_argument('--fix_subj_obj_mask_bug', action='store_true', help='Fix subject/object mask bug?')
 
-
+parser.add_argument('--ucca_for_gcp', action='store_true', help='Output vocab directory.')
 parser.add_argument('--ucca_dim', type=int, default=0, help='UCCA Path to Root Emdedding vector dimension.')
-parser.add_argument('--ucca_embedding_dir', default=r'C:\Users\JYellin\re_1\tacred\ucca-embedding', help='Output vocab directory.')
+parser.add_argument('--ucca_embedding_dir', default=r'C:\Users\JYellin\re_1\tacred\ucca-embedding2', help='Output vocab directory.')
 parser.add_argument('--ucca_embedding_file', default='ucca_path_embeddings', help='UCCA Path to Root Embedding vector file')
 parser.add_argument('--ucca_embedding_index_file', default='ucca_path_embedding_index', help='UCCA Path to Root Embedding vector file')
 parser.add_argument('--ucca_embedding_ignore', action='store_true', help='Do not initialize UCCA embedding with prepared matrix')
@@ -110,6 +110,7 @@ assert emb_matrix.shape[0] == vocab.size
 assert emb_matrix.shape[1] == opt['emb_dim']
 
 # UCCA Embedding?
+ucca_embedding = None
 if args.ucca_dim > 0:
     embedding_file = args.ucca_embedding_dir + '/' + args.ucca_embedding_file
     index_file = args.ucca_embedding_dir + '/' +  args.ucca_embedding_index_file
@@ -137,7 +138,7 @@ helper.print_config(opt)
 
 # model
 if not opt['load']:
-    trainer = GCNTrainer(opt, emb_matrix=emb_matrix, ucca_embedding_matrix=ucca_embedding.embedding_matrix)
+    trainer = GCNTrainer(opt, emb_matrix=emb_matrix, ucca_embedding_matrix=ucca_embedding.embedding_matrix if ucca_embedding else None)
 else:
     # load pretrained model
     model_file = opt['model_file'] 
