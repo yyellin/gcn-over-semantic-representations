@@ -106,7 +106,7 @@ class DataLoader(object):
             for i in tokens_with_zero_heads[1:]:
                 heads[i] = tokens_with_zero_heads[0]+1
 
-            subj_positions = get_positions(d['subj_start'], d['squbj_end'], l)
+            subj_positions = get_positions(d['subj_start'], d['subj_end'], l)
             obj_positions = get_positions(d['obj_start'], d['obj_end'], l)
             subj_type = [constant.SUBJ_NER_TO_ID[d['subj_type']]]
             obj_type = [constant.OBJ_NER_TO_ID[d['obj_type']]]
