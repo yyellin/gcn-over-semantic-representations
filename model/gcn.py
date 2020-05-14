@@ -10,8 +10,9 @@ import numpy as np
 import itertools
 import networkx
 
-from model.tree import Tree, head_to_tree, tree_to_adj
-from utils import constant, torch_utils
+from model.tree import Tree, head_to_tree, tree_to_adj, fold_multiple_root_words
+from utils import constant
+from utils.torch_utils import  keep_partial_grad, get_long_tensor, set_cuda
 from utils.ucca_embedding import UccaEmbedding
 
 
@@ -43,7 +44,7 @@ class GCNRelationModel(nn.Module):
         self.emb = nn.Embedding(opt['vocab_size'], opt['emb_dim'], padding_idx=constant.PAD_ID)
         self.pos_emb = nn.Embedding(len(constant.POS_TO_ID), opt['pos_dim']) if opt['pos_dim'] > 0 else None
         self.ner_emb = nn.Embedding(len(constant.NER_TO_ID), opt['ner_dim']) if opt['ner_dim'] > 0 else None
-        self.ucca_emb = nn.Embedding(opt['ucca_embedding_vocab_size'], opt['ucca_dim']) if opt['ucca_dim'] > 0 else None
+        self.ucca_emb = nn.Embedding(opt['ucca_embedding_vocab_size'], opt['ucca_embedding_dim']) if opt['ucca_embedding_dim'] > 0 else None
 
         embeddings = (self.emb, self.pos_emb, self.ner_emb, self.ucca_emb)
         self.init_embeddings()
@@ -76,36 +77,32 @@ class GCNRelationModel(nn.Module):
         elif self.opt['topn'] < self.opt['vocab_size']:
             print("Finetune top {} word embeddings.".format(self.opt['topn']))
             self.emb.weight.register_hook(lambda x: \
-                    torch_utils.keep_partial_grad(x, self.opt['topn']))
+                    keep_partial_grad(x, self.opt['topn']))
         else:
             print("Finetune all embeddings.")
 
-
-
     def forward(self, inputs):
-        words, masks, pos, ner, deprel, head, subj_pos, obj_pos, subj_type, obj_type, ucca_encoding = inputs # unpack
-        l = (masks.data.cpu().numpy() == 0).astype(np.int64).sum(1)
-        maxlen = max(l)
+        maxlen = max(inputs.len)
 
-        def inputs_to_tree_reps(head, words, l, prune, subj_pos, obj_pos):
-            head, words, subj_pos, obj_pos = head.cpu().numpy(), words.cpu().numpy(), subj_pos.cpu().numpy(), obj_pos.cpu().numpy()
-            trees = [head_to_tree(head[i], words[i], l[i], prune, subj_pos[i], obj_pos[i]) for i in range(len(l))]
+        def tree_to_adj(heads, l, prune, subj_pos, obj_pos):
+            trees = [head_to_tree(fold_multiple_root_words(heads[i]), prune, subj_pos[i], obj_pos[i]) for i in range(len(l))]
+
             adj = [tree_to_adj(maxlen, tree, directed=False, self_loop=False).reshape(1, maxlen, maxlen) for tree in trees]
             adj = np.concatenate(adj, axis=0)
             adj = torch.from_numpy(adj)
+
             return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
 
-        def ucca_inputs_to_tree_reps(ucca_head, l, prune, subj_pos, obj_pos):
-            batch_len = len(ucca_head)
-            ucca_heads, subj_pos, obj_pos = ucca_head.cpu().numpy(),  subj_pos.cpu().numpy(), obj_pos.cpu().numpy()
-            adj_matrices = []
+        def dag_to_adj(multi_heads, l, prune, subj_pos, obj_pos):
+            batch_len = len(multi_heads)
 
+            adj_matrices = []
             for sent_idx in range(batch_len):
-                sentence_length = l[sent_idx]
+                sent_len = l[sent_idx]
                 adj_matrix = np.zeros((maxlen, maxlen), dtype=np.float32)
-                subj = [token_id for token_id in range(sentence_length) if subj_pos[sent_idx][token_id] == 0]
-                obj= [token_id for token_id in range(sentence_length) if obj_pos[sent_idx][token_id] == 0]
-                edges = {(ucca_heads[sent_idx][token_id]-1, token_id):True for token_id in range(sentence_length)}
+                subj = [token_id for token_id in range(sent_len) if subj_pos[sent_idx][token_id] == 0]
+                obj= [token_id for token_id in range(sent_len) if obj_pos[sent_idx][token_id] == 0]
+                edges = {(head_id-1, token_id):True for token_id in range(sent_len) for head_id in multi_heads[sent_idx][token_id] }
 
                 extended_edges = edges.copy()
                 for edge in itertools.combinations(subj, 2):
@@ -125,7 +122,7 @@ class GCNRelationModel(nn.Module):
                 all_shortest_paths_lengths = {start: targets for start, targets in networkx.shortest_path_length(graph)}
 
                 token_distances = []
-                for token_id in range(sentence_length):
+                for token_id in range(sent_len):
                     distance = 0
                     if token_id not in on_path:
                         distances_to_path = {target: distance_to_target
@@ -145,24 +142,21 @@ class GCNRelationModel(nn.Module):
 
                 adj_matrices.append(adj_matrix.reshape(1, maxlen, maxlen))
 
-
-
-
-
-                #adj = [tree_to_adj(maxlen, tree, directed=False, self_loop=False).reshape(1, maxlen, maxlen) for tree in trees]
-
             adj = np.concatenate(adj_matrices, axis=0)
             adj = torch.from_numpy(adj)
             return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
 
-        adj = inputs_to_tree_reps(head.data,  words.data, l, self.opt['prune_k'], subj_pos.data, obj_pos.data)
-        #adj = ucca_inputs_to_tree_reps(head.data,  l, self.opt['prune_k'], subj_pos.data, obj_pos.data)
+
+        if not self.opt['ucca_multi_head']:
+            adj = tree_to_adj(inputs.head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
+        else:
+            adj = dag_to_adj(inputs.multi_head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
 
         h, pool_mask = self.gcn(adj, inputs)
         
         # pooling
-        subj_mask = subj_pos.eq(0).eq(0).unsqueeze(2) # invert mask
-        obj_mask = obj_pos.eq(0).eq(0).unsqueeze(2) # invert mask
+        subj_mask = set_cuda(get_long_tensor(inputs.subj_p, inputs.batch_size ), self.opt['cuda']).eq(0).eq(0).unsqueeze(2) # invert mask
+        obj_mask = set_cuda(get_long_tensor(inputs.obj_p, inputs.batch_size ), self.opt['cuda']).eq(0).eq(0).unsqueeze(2) # invert mask
 
         if self.opt['fix_subj_obj_mask_bug']:
             subj_mask = ~(~subj_mask & ~pool_mask)
@@ -175,7 +169,9 @@ class GCNRelationModel(nn.Module):
         obj_out = pool(h, obj_mask, type=pool_type)
         outputs = torch.cat([h_out, subj_out, obj_out], dim=1)
         outputs = self.out_mlp(outputs)
+
         return outputs, h_out
+
 
 class GCN(nn.Module):
     """ A GCN/Contextualized GCN module operated on dependency graphs. """
@@ -185,7 +181,7 @@ class GCN(nn.Module):
         self.layers = num_layers
         self.use_cuda = opt['cuda']
         self.mem_dim = mem_dim
-        self.in_dim = opt['emb_dim'] + opt['pos_dim'] + opt['ner_dim'] + opt['ucca_dim']
+        self.in_dim = opt['emb_dim'] + opt['pos_dim'] + opt['ner_dim'] + opt['ucca_embedding_dim']
 
         self.emb, self.pos_emb, self.ner_emb, self.ucca_emb = embeddings
 
@@ -222,15 +218,15 @@ class GCN(nn.Module):
         return rnn_outputs
 
     def forward(self, adj, inputs):
-        words, masks, pos, ner, deprel, head, subj_pos, obj_pos, subj_type, obj_type, ucca_encoding = inputs # unpack
-        word_embs = self.emb(words)
+
+        word_embs = self.emb(inputs.word)
         embs = [word_embs]
         if self.opt['pos_dim'] > 0:
-            embs += [self.pos_emb(pos)]
+            embs += [self.pos_emb(inputs.pos)]
         if self.opt['ner_dim'] > 0:
-            embs += [self.ner_emb(ner)]
-        if self.opt['ucca_dim'] > 0:
-            embs += [self.ucca_emb(ucca_encoding)]
+            embs += [self.ner_emb(inputs.ner)]
+        if self.opt['ucca_embedding_dim'] > 0:
+            embs += [self.ucca_emb(inputs.ucca_enc)]
 
 
         embs = torch.cat(embs, dim=2)
@@ -238,7 +234,7 @@ class GCN(nn.Module):
 
         # rnn layer
         if self.opt.get('rnn', False):
-            gcn_inputs = self.rnn_drop(self.encode_with_rnn(embs, masks, words.size()[0]))
+            gcn_inputs = self.rnn_drop(self.encode_with_rnn(embs, inputs.mask, inputs.word.size()[0]))
         else:
             gcn_inputs = embs
         

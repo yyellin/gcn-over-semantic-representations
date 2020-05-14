@@ -47,12 +47,11 @@ class Tree(object):
             for x in c:
                 yield x
 
-def head_to_tree(head, tokens, len_, prune, subj_pos, obj_pos):
+def head_to_tree(head, prune, subj_pos, obj_pos):
     """
     Convert a sequence of head indexes into a tree object.
     """
-    tokens = tokens[:len_].tolist()
-    head = head[:len_].tolist()
+    length = len(head)
     root = None
 
     if prune < 0:
@@ -68,8 +67,8 @@ def head_to_tree(head, tokens, len_, prune, subj_pos, obj_pos):
                 nodes[h-1].add_child(nodes[i])
     else:
         # find dependency path
-        subj_pos = [i for i in range(len_) if subj_pos[i] == 0]
-        obj_pos = [i for i in range(len_) if obj_pos[i] == 0]
+        subj_pos = [i for i in range(length) if subj_pos[i] == 0]
+        obj_pos = [i for i in range(length) if obj_pos[i] == 0]
 
         cas = None
 
@@ -116,9 +115,9 @@ def head_to_tree(head, tokens, len_, prune, subj_pos, obj_pos):
         path_nodes.add(lca)
 
         # compute distance to path_nodes
-        dist = [-1 if i not in path_nodes else 0 for i in range(len_)]
+        dist = [-1 if i not in path_nodes else 0 for i in range(length)]
 
-        for i in range(len_):
+        for i in range(length):
             if dist[i] < 0:
                 stack = [i]
                 while stack[-1] >= 0 and stack[-1] not in path_nodes:
@@ -133,7 +132,7 @@ def head_to_tree(head, tokens, len_, prune, subj_pos, obj_pos):
                             dist[j] = int(1e4) # aka infinity
 
         highest_node = lca
-        nodes = [Tree() if dist[i] <= prune else None for i in range(len_)]
+        nodes = [Tree() if dist[i] <= prune else None for i in range(length)]
 
         for i in range(len(nodes)):
             if nodes[i] is None:
@@ -183,3 +182,11 @@ def tree_to_dist(sent_len, tree):
         ret[node.idx] = node.dist
 
     return ret
+
+def fold_multiple_root_words(heads):
+    heads = heads.copy()
+    tokens_with_zero_heads = [i for i, head in enumerate(heads) if head == 0]
+    assert len(tokens_with_zero_heads) > 0
+    for i in tokens_with_zero_heads[1:]:
+        heads[i] = tokens_with_zero_heads[0]+1
+    return heads

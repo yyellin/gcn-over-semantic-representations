@@ -7,9 +7,20 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
+from collections import namedtuple
 
 from model.gcn import GCNClassifier
-from utils import constant, torch_utils
+from utils.torch_utils import  get_long_tensor, set_cuda, change_lr, get_optimizer
+
+
+class Input(namedtuple('Input', 'batch_size, word, mask, pos, ner, deprel, ucca_enc, len, head, multi_head, subj_p, obj_p, id, orig_idx')):
+    """
+    'Input' objects are similar to 'Batch'; however, all fields that need to be in tensor form, are captured as tensors. Fields
+    that do not need to be in Tensor form continue to be represented in their native formats
+    """
+
+    pass
+
 
 class Trainer(object):
     def __init__(self, opt, emb_matrix=None):
@@ -22,7 +33,7 @@ class Trainer(object):
         raise NotImplementedError
 
     def update_lr(self, new_lr):
-        torch_utils.change_lr(self.optimizer, new_lr)
+        change_lr(self.optimizer, new_lr)
 
     def load(self, filename):
         try:
@@ -45,21 +56,6 @@ class Trainer(object):
             print("[Warning: Saving failed... continuing anyway.]")
 
 
-def unpack_batch(batch, cuda):
-    if cuda:
-        inputs = [Variable(b.cuda()) for b in batch[:11]]
-        labels = Variable(batch[11].cuda())
-    else:
-        inputs = [Variable(b) for b in batch[:11]]
-        labels = Variable(batch[11])
-    tokens = batch[0]
-    head = batch[5]
-    subj_pos = batch[6]
-    obj_pos = batch[7]
-    lens = batch[1].eq(0).long().sum(1).squeeze()
-
-    return inputs, labels, tokens, head, subj_pos, obj_pos, lens
-
 class GCNTrainer(Trainer):
     def __init__(self, opt, emb_matrix=None, ucca_embedding_matrix=None):
         self.opt = opt
@@ -71,40 +67,76 @@ class GCNTrainer(Trainer):
         if opt['cuda']:
             self.model.cuda()
             self.criterion.cuda()
-        self.optimizer = torch_utils.get_optimizer(opt['optim'], self.parameters, opt['lr'])
+        self.optimizer = get_optimizer(opt['optim'], self.parameters, opt['lr'])
 
     def update(self, batch):
-        inputs, labels, tokens, head, subj_pos, obj_pos, lens = unpack_batch(batch, self.opt['cuda'])
+        input, labels = self.unpack_batch(batch, self.opt['cuda'] )
 
         # step forward
         self.model.train()
         self.optimizer.zero_grad()
-        logits, pooling_output = self.model(inputs)
+        logits, pooling_output = self.model(input)
         loss = self.criterion(logits, labels)
+
         # l2 decay on all conv layers
         if self.opt.get('conv_l2', 0) > 0:
             loss += self.model.conv_l2() * self.opt['conv_l2']
+
         # l2 penalty on output representations
         if self.opt.get('pooling_l2', 0) > 0:
             loss += self.opt['pooling_l2'] * (pooling_output ** 2).sum(1).mean()
+
         loss_val = loss.item()
+
         # backward
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), self.opt['max_grad_norm'])
         self.optimizer.step()
+
         return loss_val
 
     def predict(self, batch, unsort=True):
-        inputs, labels, tokens, head, subj_pos, obj_pos, lens = unpack_batch(batch, self.opt['cuda'])
-        orig_idx = batch[12]
-        ids = batch[13]
+        input, labels = self.unpack_batch(batch, self.opt['cuda'] )
+
+        #inputs, labels, tokens, head, subj_pos, obj_pos, lens = unpack_batch(batch, self.opt['cuda'])
+        orig_idx = input.orig_idx
+        ids = input.id
 
         # forward
         self.model.eval()
-        logits, _ = self.model(inputs)
+        logits, _ = self.model(input)
         loss = self.criterion(logits, labels)
         probs = F.softmax(logits, 1).data.cpu().numpy().tolist()
         predictions = np.argmax(logits.data.cpu().numpy(), axis=1).tolist()
         if unsort:
             _, predictions, probs, ids = [list(t) for t in zip(*sorted(zip(orig_idx, predictions, probs, ids)))]
         return predictions, probs, loss.item(), ids
+
+    def unpack_batch(self, batch, cuda):
+
+        words = set_cuda(get_long_tensor(batch.word, batch.batch_size), cuda)
+        masks = set_cuda(torch.eq(words, 0), cuda)
+        pos = set_cuda(get_long_tensor(batch.pos, batch.batch_size), cuda)
+        ner = set_cuda(get_long_tensor(batch.ner, batch.batch_size), cuda)
+        deprel = set_cuda(get_long_tensor(batch.deprel, batch.batch_size), cuda)
+        ucca_enc = set_cuda(get_long_tensor(batch.ucca_enc, batch.batch_size), cuda)
+
+        rel = set_cuda(torch.LongTensor(batch.rel), cuda)
+
+        input = Input(batch_size=batch.batch_size,
+                      word=words,
+                      mask=masks,
+                      pos=pos,
+                      ner=ner,
+                      deprel=deprel,
+                      ucca_enc=ucca_enc,
+                      len=batch.len,
+                      head=batch.head,
+                      multi_head=batch.multi_head,
+                      subj_p=batch.subj_p,
+                      obj_p=batch.obj_p,
+                      id=batch.id,
+                      orig_idx=batch.orig_idx)
+
+        return input, rel
+

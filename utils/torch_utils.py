@@ -5,6 +5,7 @@ Utility functions for torch.
 import torch
 from torch import nn, optim
 from torch.optim import Optimizer
+from utils import constant
 
 ### class
 class MyAdagrad(Optimizer):
@@ -128,6 +129,19 @@ def keep_partial_grad(grad, topk):
     assert topk < grad.size(0)
     grad.data[topk:].zero_()
     return grad
+
+
+def get_long_tensor(tokens_list, batch_size, filler=constant.PAD_ID):
+    # Convert list of list of tokens to a padded LongTensor
+
+    token_len = max(len(x) for x in tokens_list)
+    tokens = torch.LongTensor(batch_size, token_len).fill_(filler)
+
+    for i, s in enumerate(tokens_list):
+        tokens[i, :len(s)] = torch.LongTensor(s)
+
+    return tokens
+
 
 ### model IO
 def save(model, optimizer, opt, filename):
