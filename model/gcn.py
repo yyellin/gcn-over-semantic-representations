@@ -84,7 +84,7 @@ class GCNRelationModel(nn.Module):
     def forward(self, inputs):
         maxlen = max(inputs.len)
 
-        def tree_to_adj(heads, l, prune, subj_pos, obj_pos):
+        def trees_to_adj(heads, l, prune, subj_pos, obj_pos):
             trees = [head_to_tree(fold_multiple_root_words(heads[i]), prune, subj_pos[i], obj_pos[i]) for i in range(len(l))]
 
             adj = [tree_to_adj(maxlen, tree, directed=False, self_loop=False).reshape(1, maxlen, maxlen) for tree in trees]
@@ -93,7 +93,7 @@ class GCNRelationModel(nn.Module):
 
             return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
 
-        def dag_to_adj(multi_heads, l, prune, subj_pos, obj_pos):
+        def dags_to_adj(multi_heads, l, prune, subj_pos, obj_pos):
             batch_len = len(multi_heads)
 
             adj_matrices = []
@@ -147,10 +147,37 @@ class GCNRelationModel(nn.Module):
             return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
 
 
+
+        def dags_to_adj2(multi_heads, distances, l, prune):
+            batch_len = len(multi_heads)
+
+            adj_matrices = []
+            for sent_idx in range(batch_len):
+                sent_len = l[sent_idx]
+                multi_head = multi_heads[sent_idx]
+                distance = distances[sent_idx]
+                adj_matrix = np.zeros((maxlen, maxlen), dtype=np.float32)
+
+                for i in range(sent_len):
+                    if distance[i] <= prune:
+                        for head in multi_head[i]:
+                            if head > 0 and distance[head-1] <= prune:
+                                adj_matrix[head-1,i] = 1
+
+                adj_matrix = adj_matrix + adj_matrix.T
+
+                adj_matrices.append(adj_matrix.reshape(1, maxlen, maxlen))
+
+            adj = np.concatenate(adj_matrices, axis=0)
+            adj = torch.from_numpy(adj)
+            return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
+
+
         if not self.opt['ucca_multi_head']:
-            adj = tree_to_adj(inputs.head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
+            adj = trees_to_adj(inputs.head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
         else:
-            adj = dag_to_adj(inputs.multi_head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
+            #adj = dags_to_adj(inputs.multi_head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
+            adj = dags_to_adj2(inputs.multi_head, inputs.ucca_dist_from_mh_path, inputs.len, self.opt['prune_k'])
 
         h, pool_mask = self.gcn(adj, inputs)
         
