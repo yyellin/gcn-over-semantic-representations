@@ -58,7 +58,7 @@ class UccaEmbedding(object):
             data = json.load(infile)
             for d in data:
 
-                num_tokens = len(d['token'])
+                num_tokens = len(d['ucca_tokens'])
                 encodings_dict = d['ucca_encodings_min_subtree']
                 index_to_encoding = {int(k): v for k, v in encodings_dict.items()} if encodings_dict is not None else {}
                 encodings = []
