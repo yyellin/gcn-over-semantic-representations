@@ -11,13 +11,13 @@ from utils.ucca_embedding import UccaEmbedding
 from utils import constant, helper, vocab
 from collections import namedtuple
 
-class Entry(namedtuple('Entry', 'token, pos, ner, deprel, head, multi_head, subj_p, obj_p, ucca_enc, ucca_dist_from_mh_path, rel, id')):
+class Entry(namedtuple('Entry', 'token, pos, ner, head, multi_head, subj_p, obj_p, ucca_enc, ucca_dist_from_mh_path, rel, id')):
     """
     'Entry' objects represent individual TACRED entries, that have been preprocessed for further handling.
     """
     pass
 
-class Batch(namedtuple('Batch', 'batch_size, word, pos, ner, deprel, head, multi_head, subj_p, obj_p, ucca_enc, ucca_dist_from_mh_path, rel, orig_idx, id, len')):
+class Batch(namedtuple('Batch', 'batch_size, word, pos, ner, head, multi_head, subj_p, obj_p, ucca_enc, ucca_dist_from_mh_path, rel, orig_idx, id, len')):
     """
     'Batch' objects hold batches of Entry objects (without no additional preprocessing)
     """
@@ -98,19 +98,9 @@ class DataLoader(object):
             tokens[os:oe+1] = ['OBJ-'+d['obj_type']] * (oe-os+1)
             tokens = map_to_ids(tokens, vocab.word2id)
 
-
-            ucca_standford_pos_dict = { ucca_token:pos for tac_token, pos in enumerate(d['stanford_pos']) for ucca_token in tac_to_ucca[tac_token]}
-            d['stanford_pos'] = [pos for key, pos in sorted(ucca_standford_pos_dict.items())]
-
-            ucca_standford_ner_dict = { ucca_token:ner for tac_token, ner in enumerate(d['stanford_ner']) for ucca_token in tac_to_ucca[tac_token]}
-            d['stanford_ner'] = [ner for key, ner in sorted(ucca_standford_ner_dict.items())]
-
-            ucca_standford_deprel_dict = { ucca_token:deprel for tac_token, deprel in enumerate(d['stanford_deprel']) for ucca_token in tac_to_ucca[tac_token]}
-            d['stanford_deprel'] = [deprel for key, deprel in sorted(ucca_standford_deprel_dict.items())]
-
-            pos = map_to_ids(d['stanford_pos'], constant.POS_TO_ID)
-            ner = map_to_ids(d['stanford_ner'], constant.NER_TO_ID)
-            deprel = map_to_ids(d['stanford_deprel'], constant.DEPREL_TO_ID)
+            pos = map_to_ids(d['ucca_tags'], constant.UCCA_POS_TO_ID)
+            ner = map_to_ids(d['ucca_ents'], constant.UCCA_NER_TO_ID)
+            #deprel = map_to_ids(d['stanford_deprel'], constant.DEPREL_TO_ID)
 
             heads = [int(x) for x in d['ucca_heads']]
             multi_heads = [[head for dep, head in ucca_deps] for ucca_deps in d['ucca_deps']]
@@ -142,7 +132,6 @@ class DataLoader(object):
             data_entry = Entry(token=tokens,
                                pos=pos,
                                ner=ner,
-                               deprel=deprel,
                                head=heads,
                                multi_head=multi_heads,
                                subj_p=subj_positions,
@@ -196,7 +185,6 @@ class DataLoader(object):
 
         pos = batch[self.field_to_index['pos']]
         ner = batch[self.field_to_index['ner']]
-        deprel = batch[self.field_to_index['deprel']]
         heads = batch[self.field_to_index['head']]
         multi_heads = batch[self.field_to_index['multi_head']]
         subj_p = batch[self.field_to_index['subj_p']]
@@ -211,7 +199,6 @@ class DataLoader(object):
                      word=words,
                      pos=pos,
                      ner=ner,
-                     deprel=deprel,
                      head=heads,
                      multi_head=multi_heads,
                      subj_p=subj_p,

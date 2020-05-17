@@ -42,8 +42,8 @@ class GCNRelationModel(nn.Module):
 
         # create embedding layers
         self.emb = nn.Embedding(opt['vocab_size'], opt['emb_dim'], padding_idx=constant.PAD_ID)
-        self.pos_emb = nn.Embedding(len(constant.POS_TO_ID), opt['pos_dim']) if opt['pos_dim'] > 0 else None
-        self.ner_emb = nn.Embedding(len(constant.NER_TO_ID), opt['ner_dim']) if opt['ner_dim'] > 0 else None
+        self.pos_emb = nn.Embedding(len(constant.UCCA_POS_TO_ID), opt['pos_dim']) if opt['pos_dim'] > 0 else None
+        self.ner_emb = nn.Embedding(len(constant.UCCA_NER_TO_ID), opt['ner_dim']) if opt['ner_dim'] > 0 else None
         self.ucca_emb = nn.Embedding(opt['ucca_embedding_vocab_size'], opt['ucca_embedding_dim']) if opt['ucca_embedding_dim'] > 0 else None
 
         embeddings = (self.emb, self.pos_emb, self.ner_emb, self.ucca_emb)
