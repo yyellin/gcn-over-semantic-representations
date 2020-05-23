@@ -77,8 +77,8 @@ parser.add_argument('--train_without_shuffling', action='store_true', help='Shou
 parser.add_argument('--mask_in_self_loop', action='store_true', help='Mask in self loop?')
 parser.add_argument('--fix_subj_obj_mask_bug', action='store_true', help='Fix subject/object mask bug?')
 
-parser.add_argument('--ucca_for_gcp', action='store_false', help='Should we use UCCA heads for GCP?')
-parser.add_argument('--ucca_multi_head', action='store_true', help='Should we use UCCA multi-head mode?')
+parser.add_argument('--head', choices=('spacy', 'ucca'), default='spacy', help='Which bi-lexical parse should we use?')
+
 parser.add_argument('--ucca_embedding_dim', type=int, default=0, help='UCCA Path to Root Emdedding vector dimension.')
 parser.add_argument('--ucca_embedding_dir', default=r'C:\Users\JYellin\re_1\tacred\ucca-embedding2', help='Output vocab directory.')
 parser.add_argument('--ucca_embedding_file', default='ucca_path_embeddings', help='UCCA Path to Root Embedding vector file')

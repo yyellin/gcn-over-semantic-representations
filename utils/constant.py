@@ -28,8 +28,8 @@ LABEL_TO_ID = {'no_relation': 0, 'per:title': 1, 'org:top_members/employees': 2,
 
 INFINITY_NUMBER = 1e12
 
-UCCA_POS_TO_ID = { PAD_TOKEN: 0, UNK_TOKEN: 1, '.': 2, ',': 3, '-LRB-': 4, '-RRB-': 5, '``': 6, '""': 7, '\'\'': 8, ':': 9, '$': 10, '#': 11, 'AFX': 12, 'CC': 13, 'CD': 14, 'DT': 15, 'EX': 16, 'FW': 17, 'HYPH': 18, 'IN': 19, 'JJ': 20, 'JJR': 21, 'JJS': 22, 'LS': 23, 'MD': 24, 'NIL': 25, 'NN': 26, 'NNP': 27, 'NNPS': 28, 'NNS': 29, 'PDT': 30, 'POS': 31, 'PRP': 32, 'PRP$': 33, 'RB': 34, 'RBR': 35, 'RBS': 36, 'RP': 37, 'SP': 38, 'SYM': 39, 'TO': 40, 'UH': 41, 'VB': 42, 'VBD': 43, 'VBG': 44, 'VBN': 45, 'VBP': 46, 'VBZ': 47, 'WDT': 48, 'WP': 49, 'WP$': 50, 'WRB': 51, 'ADD': 52, 'NFP': 53, 'GW': 54, 'XX': 55, 'BES': 56, 'HVS': 57, '_SP': 58}
+SPACY_POS_TO_ID = {PAD_TOKEN: 0, UNK_TOKEN: 1, '.': 2, ',': 3, '-LRB-': 4, '-RRB-': 5, '``': 6, '""': 7, '\'\'': 8, ':': 9, '$': 10, '#': 11, 'AFX': 12, 'CC': 13, 'CD': 14, 'DT': 15, 'EX': 16, 'FW': 17, 'HYPH': 18, 'IN': 19, 'JJ': 20, 'JJR': 21, 'JJS': 22, 'LS': 23, 'MD': 24, 'NIL': 25, 'NN': 26, 'NNP': 27, 'NNPS': 28, 'NNS': 29, 'PDT': 30, 'POS': 31, 'PRP': 32, 'PRP$': 33, 'RB': 34, 'RBR': 35, 'RBS': 36, 'RP': 37, 'SP': 38, 'SYM': 39, 'TO': 40, 'UH': 41, 'VB': 42, 'VBD': 43, 'VBG': 44, 'VBN': 45, 'VBP': 46, 'VBZ': 47, 'WDT': 48, 'WP': 49, 'WP$': 50, 'WRB': 51, 'ADD': 52, 'NFP': 53, 'GW': 54, 'XX': 55, 'BES': 56, 'HVS': 57, '_SP': 58}
 
-UCCA_NER_TO_ID = {PAD_TOKEN: 0, UNK_TOKEN: 1, '': 2, 'PERSON': 3, 'NORP': 4, 'FAC': 5, 'ORG': 6, 'GPE': 7, 'LOC': 8, 'PRODUCT': 9, 'EVENT': 10, 'WORK_OF_ART': 11, 'LAW': 12, 'LANGUAGE': 13, 'DATE': 14, 'TIME': 15, 'PERCENT': 16, 'MONEY': 17, 'QUANTITY': 18, 'ORDINAL': 19, 'CARDINAL': 20}
+SPACY_NER_TO_ID = {PAD_TOKEN: 0, UNK_TOKEN: 1, '': 2, 'PERSON': 3, 'NORP': 4, 'FAC': 5, 'ORG': 6, 'GPE': 7, 'LOC': 8, 'PRODUCT': 9, 'EVENT': 10, 'WORK_OF_ART': 11, 'LAW': 12, 'LANGUAGE': 13, 'DATE': 14, 'TIME': 15, 'PERCENT': 16, 'MONEY': 17, 'QUANTITY': 18, 'ORDINAL': 19, 'CARDINAL': 20}
 
 UCCA_DEP_TO_ID = {'': 0, 'P': 1, 'S': 2, 'A': 3, 'D': 4, 'C': 5, 'E': 6, 'N': 7, 'R': 8, 'H': 9, 'L': 10, 'G': 11, 'U': 12, 'F' : 13, 'T': 14}
