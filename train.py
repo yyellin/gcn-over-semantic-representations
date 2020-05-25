@@ -77,13 +77,17 @@ parser.add_argument('--train_without_shuffling', action='store_true', help='Shou
 parser.add_argument('--mask_in_self_loop', action='store_true', help='Mask in self loop?')
 parser.add_argument('--fix_subj_obj_mask_bug', action='store_true', help='Fix subject/object mask bug?')
 
-parser.add_argument('--head', choices=('spacy', 'ucca'), default='spacy', help='Which bi-lexical parse should we use?')
+parser.add_argument('--primary_engine', choices=('spacy', 'corenlp'), default='spacy', help='Which NLP parse to use?')
+
+parser.add_argument('--head', choices=('primary_engine', 'ucca', 'ucca_mh'), default='standard', help='Which bi-lexical parse should we use?')
 
 parser.add_argument('--ucca_embedding_dim', type=int, default=0, help='UCCA Path to Root Emdedding vector dimension.')
 parser.add_argument('--ucca_embedding_dir', default=r'C:\Users\JYellin\re_1\tacred\ucca-embedding2', help='Output vocab directory.')
 parser.add_argument('--ucca_embedding_file', default='ucca_path_embeddings', help='UCCA Path to Root Embedding vector file')
 parser.add_argument('--ucca_embedding_index_file', default='ucca_path_embedding_index', help='UCCA Path to Root Embedding vector file')
 parser.add_argument('--ucca_embedding_ignore', action='store_true', help='Do not initialize UCCA embedding with prepared matrix')
+parser.add_argument('--ucca_embedding_ignore', action='store_true', help='Do not initialize UCCA embedding with prepared matrix')
+
 
 args = parser.parse_args()
 

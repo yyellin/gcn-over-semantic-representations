@@ -98,12 +98,24 @@ class DataLoader(object):
             tokens[os:oe+1] = ['OBJ-'+d['obj_type']] * (oe-os+1)
             tokens = map_to_ids(tokens, vocab.word2id)
 
-            pos = map_to_ids(d['spacy_tag'], constant.SPACY_POS_TO_ID)
-            ner = map_to_ids(d['spacy_ent'], constant.SPACY_NER_TO_ID)
+            if opt['primary_engine'] == 'spacy':
+                pos = map_to_ids(d['spacy_tag'], constant.SPACY_POS_TO_ID)
+                ner = map_to_ids(d['spacy_ent'], constant.SPACY_NER_TO_ID)
+            else:
+                pos = map_to_ids(d['corenlp_pos'], constant.POS_TO_ID)
+                ner = map_to_ids(d['corenlp_ner'], constant.NER_TO_ID)
+
             #deprel = map_to_ids(d['stanford_deprel'], constant.DEPREL_TO_ID)
 
+            if opt['head'] == 'ucca':
+                heads = [int(x) for x in d['ucca_heads']]
 
-            heads = [int(x) for x in d['ucca_heads']] if opt['head'] == 'ucca' else  [int(x) for x in d['spacy_head']]
+            elif opt['primary_engine'] == 'spacy':
+                heads = [int(x) for x in d['spacy_head']]
+
+            else:
+                heads = [int(x) for x in d['corenlp_heads']]
+
             multi_heads = [[head for dep, head in ucca_deps] for ucca_deps in d['ucca_deps']]
             ucca_dist_from_mh_path = [int(x) for x in d['dist_from_ucca_mh_path']]
 
