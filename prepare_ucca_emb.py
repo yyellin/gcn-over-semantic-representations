@@ -29,7 +29,8 @@ def main():
 
     helper.ensure_dir(args.ucca_embedding_dir)
 
-    UccaEmbedding.prepare(args.ucca_embedding_dim, [train_file, dev_file, test_file], index_file, embedding_file)
+    # similarly to vocab, we'll only load encodings from train
+    UccaEmbedding.prepare(args.ucca_embedding_dim, [train_file], index_file, embedding_file)
 
     return UccaEmbedding(args.ucca_embedding_dim, index_file, embedding_file)
 
