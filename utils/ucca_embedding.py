@@ -15,7 +15,7 @@ class UccaEmbedding(object):
         self.__encoding_to_index = {encoding:i for i, encoding in enumerate(self.encoding_vocab)}
 
     def get_index(self, encoding):
-        return self.__encoding_to_index.get(encoding, default=self.__encoding_to_index[''])
+        return self.__encoding_to_index.get(encoding, self.__encoding_to_index[''])
 
 
     @staticmethod
