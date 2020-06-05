@@ -78,7 +78,7 @@ parser.add_argument('--mask_in_self_loop', action='store_true', help='Mask in se
 parser.add_argument('--fix_subj_obj_mask_bug', action='store_true', help='Fix subject/object mask bug?')
 
 
-parser.add_argument('--ucca_dim', type=int, default=0, help='UCCA Path to Root Emdedding vector dimension.')
+parser.add_argument('--ucca_embedding_dim', type=int, default=0, help='UCCA Path to Root Emdedding vector dimension.')
 parser.add_argument('--ucca_embedding_dir', default=r'C:\Users\JYellin\re_1\tacred\ucca-embedding', help='Output vocab directory.')
 parser.add_argument('--ucca_embedding_file', default='ucca_path_embeddings', help='UCCA Path to Root Embedding vector file')
 parser.add_argument('--ucca_embedding_index_file', default='ucca_path_embedding_index', help='UCCA Path to Root Embedding vector file')
@@ -110,12 +110,13 @@ assert emb_matrix.shape[0] == vocab.size
 assert emb_matrix.shape[1] == opt['emb_dim']
 
 # UCCA Embedding?
-if args.ucca_dim > 0:
+ucca_embedding = None
+if args.ucca_embedding_dim > 0:
     embedding_file = args.ucca_embedding_dir + '/' + args.ucca_embedding_file
     index_file = args.ucca_embedding_dir + '/' +  args.ucca_embedding_index_file
-    ucca_embedding =  UccaEmbedding(args.ucca_dim, index_file, embedding_file)
+    ucca_embedding =  UccaEmbedding(args.ucca_embedding_dim, index_file, embedding_file)
     opt['ucca_embedding_vocab_size'] = ucca_embedding.embedding_matrix.shape[0]
-    assert ucca_embedding.embedding_matrix.shape[1] == args.ucca_dim
+    assert ucca_embedding.embedding_matrix.shape[1] == args.ucca_embedding_dim
 
 # load data
 print("Loading data from {} with batch size {}...".format(opt['data_dir'], opt['batch_size']))
@@ -137,7 +138,7 @@ helper.print_config(opt)
 
 # model
 if not opt['load']:
-    trainer = GCNTrainer(opt, emb_matrix=emb_matrix, ucca_embedding_matrix=ucca_embedding.embedding_matrix)
+    trainer = GCNTrainer(opt, emb_matrix=emb_matrix, ucca_embedding_matrix=ucca_embedding.embedding_matrix if ucca_embedding else None)
 else:
     # load pretrained model
     model_file = opt['model_file'] 
