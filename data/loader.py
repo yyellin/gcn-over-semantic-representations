@@ -139,6 +139,29 @@ class DataLoader(object):
                         ucca_encodings_for_min_subtree.append(self.ucca_embedding.get_index(''))
 
 
+            if opt['primary_engine'] == 'corenlp' and opt['coref_dim'] > 0:
+                assert('corenlp_coref' in d)
+
+                subject_index_range = range(d['subj_start'], d['subj_end']+1)
+                object_index_range = range(d['obj_start'], d['obj_end']+1)
+
+                #"corenlp_coref": [[[25, 26], [[35, 36]]]]
+
+                for coref_set in d['corenlp_coref']:
+                    anchor_coords = coref_set[0]
+                    anchor = set( index-1 for index in range(anchor_coords[0],anchor_coords[1]))
+                    coref = None
+
+                    if anchor.intersection(subject_index_range):
+                        coref = 'subj'
+                    elif anchor.intersection(object_index_range):
+                        coref = 'obj'
+
+                    if coref:
+                        pass
+
+
+
             # capture id so that we can propagate through model
             tacred_id = d['id']
 

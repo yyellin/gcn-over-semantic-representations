@@ -81,6 +81,8 @@ parser.add_argument('--primary_engine', choices=('spacy', 'corenlp'), default='s
 
 parser.add_argument('--head', choices=('primary_engine', 'ucca', 'ucca_mh'), default='standard', help='Which bi-lexical parse should we use?')
 
+parser.add_argument('--coref_dim', type=int, default=0, help='COREF embedding dimension (available only when primary_engine=corenlp).')
+
 parser.add_argument('--ucca_embedding_dim', type=int, default=0, help='UCCA Path to Root Emdedding vector dimension.')
 parser.add_argument('--ucca_embedding_dir', default=r'C:\Users\JYellin\re_1\tacred\ucca-embedding2', help='Output vocab directory.')
 parser.add_argument('--ucca_embedding_file', default='ucca_path_embeddings', help='UCCA Path to Root Embedding vector file')
