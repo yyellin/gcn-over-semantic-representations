@@ -92,7 +92,7 @@ class DataLoader(object):
 
             # capture UCCA encoding
             ucca_encodings_for_min_subtree = []
-            if opt['ucca_dim'] > 0:
+            if opt['ucca_embedding_dim'] > 0:
                 assert('ucca_encodings_min_subtree' in d)
 
                 index_to_encoding = {int(k):v for k,v in d['ucca_encodings_min_subtree'].items()} if d['ucca_encodings_min_subtree'] is not None else {}

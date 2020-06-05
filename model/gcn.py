@@ -41,7 +41,7 @@ class GCNRelationModel(nn.Module):
         self.emb = nn.Embedding(opt['vocab_size'], opt['emb_dim'], padding_idx=constant.PAD_ID)
         self.pos_emb = nn.Embedding(len(constant.POS_TO_ID), opt['pos_dim']) if opt['pos_dim'] > 0 else None
         self.ner_emb = nn.Embedding(len(constant.NER_TO_ID), opt['ner_dim']) if opt['ner_dim'] > 0 else None
-        self.ucca_emb = nn.Embedding(opt['ucca_embedding_vocab_size'], opt['ucca_dim']) if opt['ucca_dim'] > 0 else None
+        self.ucca_emb = nn.Embedding(opt['ucca_embedding_vocab_size'], opt['ucca_embedding_dim']) if opt['ucca_embedding_dim'] > 0 else None
 
         embeddings = (self.emb, self.pos_emb, self.ner_emb, self.ucca_emb)
         self.init_embeddings()
@@ -121,7 +121,7 @@ class GCN(nn.Module):
         self.layers = num_layers
         self.use_cuda = opt['cuda']
         self.mem_dim = mem_dim
-        self.in_dim = opt['emb_dim'] + opt['pos_dim'] + opt['ner_dim'] + opt['ucca_dim']
+        self.in_dim = opt['emb_dim'] + opt['pos_dim'] + opt['ner_dim'] + opt['ucca_embedding_dim']
 
         self.emb, self.pos_emb, self.ner_emb, self.ucca_emb = embeddings
 
@@ -165,7 +165,7 @@ class GCN(nn.Module):
             embs += [self.pos_emb(pos)]
         if self.opt['ner_dim'] > 0:
             embs += [self.ner_emb(ner)]
-        if self.opt['ucca_dim'] > 0:
+        if self.opt['ucca_embedding_dim'] > 0:
             embs += [self.ucca_emb(ucca_encoding)]
 
 
