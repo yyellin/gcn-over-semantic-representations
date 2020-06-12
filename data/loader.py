@@ -150,18 +150,25 @@ class DataLoader(object):
 
                 #"corenlp_coref": [[[25, 26], [[35, 36]]]]
 
+                coref = ['O'] * len(tokens)
+
                 for coref_set in d['corenlp_coref']:
                     anchor_coords = coref_set[0]
-                    anchor = set( index-1 for index in range(anchor_coords[0],anchor_coords[1]))
-                    coref = None
+                    anchor = set(index-1 for index in range(anchor_coords[0],anchor_coords[1]))
+                    anchor_ner = next((ner[index] for index in anchor if ner[index] != 'O'), 'O')
+                    if anchor_ner == 'O':
+                        continue
 
+                    coref_to_what = 'NO_M'
                     if anchor.intersection(subject_index_range):
-                        coref = 'subj'
+                        coref_to_what = 'M_SUBJ'
                     elif anchor.intersection(object_index_range):
-                        coref = 'obj'
+                        coref_to_what = 'M_OBJ'
 
-                    if coref:
-                        pass
+                    ref_coord_pairs = coref_set[1]
+                    for ref_coord_pair in ref_coord_pairs:
+                        for i in [index-1 for index in range(ref_coord_pair[0],ref_coord_pair[1])]:
+                            coref[i] = constant.COREF_TO_ID[coref_to_what][anchor_ner]
 
 
 

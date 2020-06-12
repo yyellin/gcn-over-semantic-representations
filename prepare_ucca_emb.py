@@ -9,9 +9,10 @@ def parse_args():
     parser = argparse.ArgumentParser(description='Prepare vocab for relation extraction.')
     parser.add_argument('--data_dir', default=r'C:\Users\JYellin\re_1\tacred\data\json-enhanced3', help='TACRED directory.')
     parser.add_argument('--ucca_embedding_dim', type=int, default=80, help='UCCA Path to Root Emdedding vector dimension.')
-    parser.add_argument('--ucca_embedding_dir', default=r'C:\Users\JYellin\re_1\tacred\ucca-embedding', help='Output vocab directory.')
+    parser.add_argument('--ucca_embedding_dir', default=r'./ucca-embedding', help='Output vocab directory.')
     parser.add_argument('--ucca_embedding_file', default='ucca_path_embeddings', help='UCCA Path to Root Embedding vector file')
     parser.add_argument('--ucca_embedding_index_file', default='ucca_path_embedding_index', help='UCCA Path to Root Embedding vector file')
+    parser.add_argument('--ucca_embedding_source', choices=('min_sub_tree', 'all'), default='min_sub_tree', help='use all embeddings or just those that belong to UCCA\'s min subtree')
 
     args = parser.parse_args()
     return args
@@ -29,7 +30,7 @@ def main():
 
     helper.ensure_dir(args.ucca_embedding_dir)
 
-    UccaEmbedding.prepare(args.ucca_embedding_dim, [train_file, dev_file, test_file], index_file, embedding_file)
+    UccaEmbedding.prepare(args.ucca_embedding_dim, [train_file, dev_file, test_file], index_file, embedding_file, args.ucca_embedding_source)
 
     return UccaEmbedding(args.ucca_embedding_dim, index_file, embedding_file)
 

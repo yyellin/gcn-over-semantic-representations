@@ -19,9 +19,9 @@ class UccaEmbedding(object):
 
 
     @staticmethod
-    def prepare(embedding_dim, input_files, index_file, embedding_file ):
+    def prepare(embedding_dim, input_files, index_file, embedding_file, source):
 
-        encodings = itertools.chain(*[UccaEmbedding.__load_encodings(input_file) for input_file in input_files])
+        encodings = itertools.chain(*[UccaEmbedding.__load_encodings(input_file, source) for input_file in input_files])
         counter = Counter(t for t in encodings)
         encoding_vocab = sorted([t for t in counter], key=counter.get, reverse=True)
         vocab_size = len(encoding_vocab)
@@ -50,16 +50,15 @@ class UccaEmbedding(object):
         print("all done.")
 
     @staticmethod
-    def __load_encodings(filename):
+    def __load_encodings(filename, source):
         all_encodings = []
 
         with open(filename) as infile:
 
             data = json.load(infile)
             for d in data:
-
                 num_tokens = len(d['ucca_tokens'])
-                encodings_dict = d['ucca_encodings_min_subtree']
+                encodings_dict = d['ucca_encodings_min_subtree'] if source == 'min_sub_tree' else d['ucca_encodings']
                 index_to_encoding = {int(k): v for k, v in encodings_dict.items()} if encodings_dict is not None else {}
                 encodings = []
 
