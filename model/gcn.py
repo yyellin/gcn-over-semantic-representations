@@ -45,8 +45,9 @@ class GCNRelationModel(nn.Module):
         self.pos_emb = nn.Embedding(len(constant.SPACY_POS_TO_ID), opt['pos_dim']) if opt['pos_dim'] > 0 else None
         self.ner_emb = nn.Embedding(len(constant.SPACY_NER_TO_ID), opt['ner_dim']) if opt['ner_dim'] > 0 else None
         self.ucca_emb = nn.Embedding(opt['ucca_embedding_vocab_size'], opt['ucca_embedding_dim']) if opt['ucca_embedding_dim'] > 0 else None
+        self.coref_emb = nn.Embedding(len(constant.ALL_NER_TYPES)*3, opt['coref_dim']) if opt['coref_dim'] > 0 else None
 
-        embeddings = (self.emb, self.pos_emb, self.ner_emb, self.ucca_emb)
+        embeddings = (self.emb, self.pos_emb, self.ner_emb, self.ucca_emb, self.coref_emb)
         self.init_embeddings()
 
         # gcn layer
@@ -208,9 +209,9 @@ class GCN(nn.Module):
         self.layers = num_layers
         self.use_cuda = opt['cuda']
         self.mem_dim = mem_dim
-        self.in_dim = opt['emb_dim'] + opt['pos_dim'] + opt['ner_dim'] + opt['ucca_embedding_dim']
+        self.in_dim = opt['emb_dim'] + opt['pos_dim'] + opt['ner_dim'] + opt['ucca_embedding_dim'] + opt['coref_dim']
 
-        self.emb, self.pos_emb, self.ner_emb, self.ucca_emb = embeddings
+        self.emb, self.pos_emb, self.ner_emb, self.ucca_emb, self.coref_emb = embeddings
 
         # rnn layer
         if self.opt.get('rnn', False):
@@ -254,6 +255,8 @@ class GCN(nn.Module):
             embs += [self.ner_emb(inputs.ner)]
         if self.opt['ucca_embedding_dim'] > 0:
             embs += [self.ucca_emb(inputs.ucca_enc)]
+        if self.opt['coref_dim'] > 0:
+            embs += [self.coref_emb(inputs.coref)]
 
 
         embs = torch.cat(embs, dim=2)

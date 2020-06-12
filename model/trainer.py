@@ -13,7 +13,7 @@ from model.gcn import GCNClassifier
 from utils.torch_utils import  get_long_tensor, set_cuda, change_lr, get_optimizer
 
 
-class Input(namedtuple('Input', 'batch_size, word, mask, pos, ner, ucca_enc, len, head, multi_head, ucca_dist_from_mh_path, subj_p, obj_p, id, orig_idx')):
+class Input(namedtuple('Input', 'batch_size, word, mask, pos, ner, coref, ucca_enc, len, head, multi_head, ucca_dist_from_mh_path, subj_p, obj_p, id, orig_idx')):
     """
     'Input' objects are similar to 'Batch'; however, all fields that need to be in tensor form, are captured as tensors. Fields
     that do not need to be in Tensor form continue to be represented in their native formats
@@ -118,6 +118,7 @@ class GCNTrainer(Trainer):
         masks = set_cuda(torch.eq(words, 0), cuda)
         pos = set_cuda(get_long_tensor(batch.pos, batch.batch_size), cuda)
         ner = set_cuda(get_long_tensor(batch.ner, batch.batch_size), cuda)
+        coref = set_cuda(get_long_tensor(batch.coref, batch.batch_size), cuda)
         ucca_enc = set_cuda(get_long_tensor(batch.ucca_enc, batch.batch_size), cuda)
 
         rel = set_cuda(torch.LongTensor(batch.rel), cuda)
@@ -127,6 +128,7 @@ class GCNTrainer(Trainer):
                       mask=masks,
                       pos=pos,
                       ner=ner,
+                      coref=coref,
                       ucca_enc=ucca_enc,
                       len=batch.len,
                       head=batch.head,

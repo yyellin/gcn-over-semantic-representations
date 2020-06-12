@@ -11,13 +11,13 @@ from utils.ucca_embedding import UccaEmbedding
 from utils import constant, helper, vocab
 from collections import namedtuple
 
-class Entry(namedtuple('Entry', 'token, pos, ner, head, multi_head, subj_p, obj_p, ucca_enc, ucca_dist_from_mh_path, rel, id')):
+class Entry(namedtuple('Entry', 'token, pos, ner, coref, head, multi_head, subj_p, obj_p, ucca_enc, ucca_dist_from_mh_path, rel, id')):
     """
     'Entry' objects represent individual TACRED entries, that have been preprocessed for further handling.
     """
     pass
 
-class Batch(namedtuple('Batch', 'batch_size, word, pos, ner, head, multi_head, subj_p, obj_p, ucca_enc, ucca_dist_from_mh_path, rel, orig_idx, id, len')):
+class Batch(namedtuple('Batch', 'batch_size, word, pos, ner, coref, head, multi_head, subj_p, obj_p, ucca_enc, ucca_dist_from_mh_path, rel, orig_idx, id, len')):
     """
     'Batch' objects hold batches of Entry objects (without no additional preprocessing)
     """
@@ -141,29 +141,30 @@ class DataLoader(object):
                     else:
                         ucca_encodings_for_min_subtree.append(self.ucca_embedding.get_index(''))
 
-
+            coref = []
             if opt['primary_engine'] == 'corenlp' and opt['coref_dim'] > 0:
                 assert('corenlp_coref' in d)
 
+                corenlp_ner = d['corenlp_ner']
                 subject_index_range = range(d['subj_start'], d['subj_end']+1)
                 object_index_range = range(d['obj_start'], d['obj_end']+1)
 
                 #"corenlp_coref": [[[25, 26], [[35, 36]]]]
 
-                coref = ['O'] * len(tokens)
+                coref = [constant.COREF_TO_ID['NO_M']['O']] * len(tokens)
 
                 for coref_set in d['corenlp_coref']:
                     anchor_coords = coref_set[0]
-                    anchor = set(index-1 for index in range(anchor_coords[0],anchor_coords[1]))
-                    anchor_ner = next((ner[index] for index in anchor if ner[index] != 'O'), 'O')
-                    if anchor_ner == 'O':
-                        continue
+                    anchor = [index-1 for index in range(anchor_coords[0],anchor_coords[1])]
+                    anchor_ner = next((corenlp_ner[index] for index in anchor if corenlp_ner[index] != 'O'), 'O')
 
                     coref_to_what = 'NO_M'
-                    if anchor.intersection(subject_index_range):
+                    if set(anchor).intersection(subject_index_range):
                         coref_to_what = 'M_SUBJ'
-                    elif anchor.intersection(object_index_range):
+                    elif set(anchor).intersection(object_index_range):
                         coref_to_what = 'M_OBJ'
+                    elif anchor_ner == 'O':
+                        continue
 
                     ref_coord_pairs = coref_set[1]
                     for ref_coord_pair in ref_coord_pairs:
@@ -178,6 +179,7 @@ class DataLoader(object):
             data_entry = Entry(token=tokens,
                                pos=pos,
                                ner=ner,
+                               coref=coref,
                                head=heads,
                                multi_head=multi_heads,
                                subj_p=subj_positions,
@@ -231,6 +233,7 @@ class DataLoader(object):
 
         pos = batch[self.field_to_index['pos']]
         ner = batch[self.field_to_index['ner']]
+        coref = batch[self.field_to_index['coref']]
         heads = batch[self.field_to_index['head']]
         multi_heads = batch[self.field_to_index['multi_head']]
         subj_p = batch[self.field_to_index['subj_p']]
@@ -245,6 +248,7 @@ class DataLoader(object):
                      word=words,
                      pos=pos,
                      ner=ner,
+                     coref=coref,
                      head=heads,
                      multi_head=multi_heads,
                      subj_p=subj_p,
