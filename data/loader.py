@@ -127,9 +127,12 @@ class DataLoader(object):
             # capture UCCA encoding
             ucca_encodings_for_min_subtree = []
             if opt['ucca_embedding_dim'] > 0:
-                assert('ucca_encodings_min_subtree' in d)
 
-                index_to_encoding = {int(k):v for k,v in d['ucca_encodings_min_subtree'].items()} if d['ucca_encodings_min_subtree'] is not None else {}
+                ucca_embedding_source = 'ucca_encodings_min_subtree' if opt['ucca_embedding_source'] == 'min_sub_tree' else 'ucca_encodings'
+
+                assert(ucca_embedding_source in d)
+
+                index_to_encoding = {int(k):v for k,v in d[ucca_embedding_source].items()} if d[ucca_embedding_source] is not None else {}
                 ucca_encodings_for_min_subtree = []
 
                 for index in range(0, len(tokens)):
