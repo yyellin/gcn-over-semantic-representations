@@ -94,6 +94,30 @@ class GCNRelationModel(nn.Module):
 
             return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
 
+        def dags_to_adj_from_dist_to_path(multi_heads, distances, l, prune):
+            batch_len = len(multi_heads)
+
+            adj_matrices = []
+            for sent_idx in range(batch_len):
+                sent_len = l[sent_idx]
+                multi_head = multi_heads[sent_idx]
+                distance = distances[sent_idx]
+                adj_matrix = np.zeros((maxlen, maxlen), dtype=np.float32)
+
+                for i in range(sent_len):
+                    if distance[i] <= prune:
+                        for head in multi_head[i]:
+                            if head > 0 and distance[head-1] <= prune:
+                                adj_matrix[head-1,i] = 1
+
+                adj_matrix = adj_matrix + adj_matrix.T
+
+                adj_matrices.append(adj_matrix.reshape(1, maxlen, maxlen))
+
+            adj = np.concatenate(adj_matrices, axis=0)
+            adj = torch.from_numpy(adj)
+            return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
+
         def dags_to_adj(multi_heads, l, prune, subj_pos, obj_pos):
             batch_len = len(multi_heads)
 
@@ -147,38 +171,20 @@ class GCNRelationModel(nn.Module):
             adj = torch.from_numpy(adj)
             return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
 
+        if self.opt['head'] == 'primary_engine' or self.opt['ucca_head_plus_primary']:
+            primary_adj = trees_to_adj(inputs.head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
+            adj = primary_adj
 
+        if self.opt['head'] == 'ucca':
+            ucca_adj = trees_to_adj(inputs.ucca_head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
+            adj = ucca_adj
 
-        def dags_to_adj2(multi_heads, distances, l, prune):
-            batch_len = len(multi_heads)
+        if self.opt['head'] == 'ucca_mh':
+            ucca_adj = dags_to_adj_from_dist_to_path(inputs.ucca_multi_head, inputs.ucca_dist_from_mh_path, inputs.len, self.opt['prune_k'])
+            adj = ucca_adj
 
-            adj_matrices = []
-            for sent_idx in range(batch_len):
-                sent_len = l[sent_idx]
-                multi_head = multi_heads[sent_idx]
-                distance = distances[sent_idx]
-                adj_matrix = np.zeros((maxlen, maxlen), dtype=np.float32)
-
-                for i in range(sent_len):
-                    if distance[i] <= prune:
-                        for head in multi_head[i]:
-                            if head > 0 and distance[head-1] <= prune:
-                                adj_matrix[head-1,i] = 1
-
-                adj_matrix = adj_matrix + adj_matrix.T
-
-                adj_matrices.append(adj_matrix.reshape(1, maxlen, maxlen))
-
-            adj = np.concatenate(adj_matrices, axis=0)
-            adj = torch.from_numpy(adj)
-            return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
-
-
-        if not self.opt.get('ucca_multi_head', False):
-            adj = trees_to_adj(inputs.head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
-        else:
-            #adj = dags_to_adj(inputs.multi_head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
-            adj = dags_to_adj2(inputs.multi_head, inputs.ucca_dist_from_mh_path, inputs.len, self.opt['prune_k'])
+        if self.opt['head'] != 'primary_engine' and self.opt['ucca_head_plus_primary']:
+            adj = (primary_adj + ucca_adj).eq(0).eq(0).float()
 
         h, pool_mask = self.gcn(adj, inputs)
         

@@ -11,13 +11,13 @@ from utils.ucca_embedding import UccaEmbedding
 from utils import constant, helper, vocab
 from collections import namedtuple
 
-class Entry(namedtuple('Entry', 'token, pos, ner, coref, head, multi_head, subj_p, obj_p, ucca_enc, ucca_dist_from_mh_path, rel, id')):
+class Entry(namedtuple('Entry', 'token, pos, ner, coref, head, ucca_head, ucca_multi_head, subj_p, obj_p, ucca_enc, ucca_dist_from_mh_path, rel, id')):
     """
     'Entry' objects represent individual TACRED entries, that have been preprocessed for further handling.
     """
     pass
 
-class Batch(namedtuple('Batch', 'batch_size, word, pos, ner, coref, head, multi_head, subj_p, obj_p, ucca_enc, ucca_dist_from_mh_path, rel, orig_idx, id, len')):
+class Batch(namedtuple('Batch', 'batch_size, word, pos, ner, coref, head, ucca_head, ucca_multi_head, subj_p, obj_p, ucca_enc, ucca_dist_from_mh_path, rel, orig_idx, id, len')):
     """
     'Batch' objects hold batches of Entry objects (without no additional preprocessing)
     """
@@ -101,22 +101,17 @@ class DataLoader(object):
             if opt['primary_engine'] == 'spacy':
                 pos = map_to_ids(d['spacy_tag'], constant.SPACY_POS_TO_ID)
                 ner = map_to_ids(d['spacy_ent'], constant.SPACY_NER_TO_ID)
+                head = [int(x) for x in d['spacy_head']]
             else:
                 pos = map_to_ids(d['corenlp_pos'], constant.POS_TO_ID)
                 ner = map_to_ids(d['corenlp_ner'], constant.NER_TO_ID)
+                head = [int(x) for x in d['corenlp_heads']]
 
             #deprel = map_to_ids(d['stanford_deprel'], constant.DEPREL_TO_ID)
 
-            if opt['head'] == 'ucca':
-                heads = [int(x) for x in d['ucca_heads']]
 
-            elif opt['primary_engine'] == 'spacy':
-                heads = [int(x) for x in d['spacy_head']]
-
-            else:
-                heads = [int(x) for x in d['corenlp_heads']]
-
-            multi_heads = [[head for dep, head in ucca_deps] for ucca_deps in d['ucca_deps']]
+            ucca_head = [int(x) for x in d['ucca_heads']]
+            ucca_multi_head = [[head for dep, head in ucca_deps] for ucca_deps in d['ucca_deps']]
             ucca_dist_from_mh_path = [int(x) for x in d['dist_from_ucca_mh_path']]
 
             subj_positions = get_positions(d['subj_start'], d['subj_end'], l)
@@ -180,8 +175,9 @@ class DataLoader(object):
                                pos=pos,
                                ner=ner,
                                coref=coref,
-                               head=heads,
-                               multi_head=multi_heads,
+                               head=head,
+                               ucca_head=ucca_head,
+                               ucca_multi_head=ucca_multi_head,
                                subj_p=subj_positions,
                                obj_p=obj_positions,
                                ucca_enc=ucca_encodings_for_min_subtree,
@@ -234,8 +230,9 @@ class DataLoader(object):
         pos = batch[self.field_to_index['pos']]
         ner = batch[self.field_to_index['ner']]
         coref = batch[self.field_to_index['coref']]
-        heads = batch[self.field_to_index['head']]
-        multi_heads = batch[self.field_to_index['multi_head']]
+        head = batch[self.field_to_index['head']]
+        ucca_head = batch[self.field_to_index['ucca_head']]
+        ucca_multi_head = batch[self.field_to_index['ucca_multi_head']]
         subj_p = batch[self.field_to_index['subj_p']]
         obj_p = batch[self.field_to_index['obj_p']]
         ucca_enc = batch[self.field_to_index['ucca_enc']]
@@ -249,8 +246,9 @@ class DataLoader(object):
                      pos=pos,
                      ner=ner,
                      coref=coref,
-                     head=heads,
-                     multi_head=multi_heads,
+                     head=head,
+                     ucca_head=ucca_head,
+                     ucca_multi_head=ucca_multi_head,
                      subj_p=subj_p,
                      obj_p=obj_p,
                      ucca_enc=ucca_enc,

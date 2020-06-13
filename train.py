@@ -80,6 +80,7 @@ parser.add_argument('--fix_subj_obj_mask_bug', action='store_true', help='Fix su
 parser.add_argument('--primary_engine', choices=('spacy', 'corenlp'), default='spacy', help='Which NLP parse to use?')
 
 parser.add_argument('--head', choices=('primary_engine', 'ucca', 'ucca_mh'), default='standard', help='Which bi-lexical parse should we use?')
+parser.add_argument('--ucca_head_plus_primary', action='store_true', help='When using UCCA heads should we also consider primary?')
 
 parser.add_argument('--coref_dim', type=int, default=0, help='COREF embedding dimension (available only when primary_engine=corenlp).')
 
