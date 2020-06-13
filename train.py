@@ -91,6 +91,7 @@ parser.add_argument('--ucca_embedding_index_file', default='ucca_path_embedding_
 parser.add_argument('--ucca_embedding_ignore', action='store_true', help='Do not initialize UCCA embedding with prepared matrix')
 parser.add_argument('--ucca_embedding_source', choices=('min_sub_tree', 'all'), default='min_sub_tree', help='use all embeddings or just those that belong to UCCA\'s min subtree')
 
+parser.add_argument('--entity_fix_csv', type=str, help='correct subj or obj entity identification')
 
 
 

@@ -6,6 +6,7 @@ import json
 import random
 import torch
 import numpy as np
+import pandas
 
 from utils.ucca_embedding import UccaEmbedding
 from utils import constant, helper, vocab
@@ -61,6 +62,21 @@ class DataLoader(object):
 
         processed = []
 
+        entity_fix_map = None
+        if opt['entity_fix_csv']:
+            assert(opt['primary_engine'] == 'corenlp')
+            entity_fix = pandas.read_csv( opt['entity_fix_csv'],
+                                          dtype= {'alt_subj_start': np.float64,
+                                                  'alt_subj_end' : np.float64,
+                                                  'alt_obj_start': np.float64,
+                                                  'alt_obj_end': np.float64
+                                                  }
+                                          )
+            entity_fix.set_index('id', inplace=True)
+            entity_fix_map = entity_fix.to_dict()
+
+        changes = 0
+
         for d in data:
 
             # if apply_filters set skip sentences with ucca_path_len that exceed max_ucca_path
@@ -78,6 +94,7 @@ class DataLoader(object):
                 if ud_path_len == -1 or ud_path_len > opt['max_ud_path']:
                     continue
 
+            tacred_id = d['id']
 
             tac_to_ucca = { int(key):val for key, val in d['tac_to_ucca'].items() }
             tokens = list(d['ucca_tokens'])
@@ -86,14 +103,54 @@ class DataLoader(object):
             if opt['lower']:
                 tokens = [t.lower() for t in tokens]
 
+            # fix subj / obj identification
+            subj_fixed, obj_fixed = False, False
+            if entity_fix_map and tacred_id in entity_fix_map['alt_subj_start']:
+
+                alt_subj_start = entity_fix_map['alt_subj_start'][tacred_id]
+                alt_subj_end = entity_fix_map['alt_subj_end'][tacred_id]
+                alt_obj_start = entity_fix_map['alt_obj_start'][tacred_id]
+                alt_obj_end = entity_fix_map['alt_obj_end'][tacred_id]
+
+                if np.isnan(alt_subj_start) or np.isnan(alt_subj_end) or np.isnan(alt_obj_start) or np.isnan(alt_obj_end):
+                    d['relation'] = 'no_relation'
+
+                else:
+                    if d['subj_start'] != int(alt_subj_start):
+                        d['subj_start'] = int(alt_subj_start)
+                        subj_fixed = True
+
+                    if d['subj_end'] != int(alt_subj_end):
+                        d['subj_end'] = int(alt_subj_end)
+                        subj_fixed = True
+
+                    if d['obj_start'] != int(alt_obj_start):
+                        d['obj_start'] = int(alt_obj_start)
+                        obj_fixed = True
+
+                    if d['obj_end'] != int(alt_obj_end):
+                        d['obj_end'] = int(alt_obj_end)
+                        obj_fixed = True
+
+                if subj_fixed or obj_fixed:
+                    changes += 1
+
             d['subj_start'] = tac_to_ucca[d['subj_start']][0]
             d['subj_end'] = tac_to_ucca[d['subj_end']][-1]
             d['obj_start'] = tac_to_ucca[d['obj_start']][0]
             d['obj_end'] = tac_to_ucca[d['obj_end']][-1]
 
+
             # anonymize tokens
             ss, se = d['subj_start'], d['subj_end']
             os, oe = d['obj_start'], d['obj_end']
+
+            if subj_fixed:
+                d['subj_type'] = next((d['corenlp_ner'][index] for index in range(ss, se+1) if d['corenlp_ner'][index]!='O'), d['subj_type'])
+
+            if obj_fixed:
+                d['obj_type'] = next((d['corenlp_ner'][index] for index in range(ss, se+1) if d['corenlp_ner'][index]!='O'), d['obj_type'])
+
             tokens[ss:se+1] = ['SUBJ-'+d['subj_type']] * (se-ss+1)
             tokens[os:oe+1] = ['OBJ-'+d['obj_type']] * (oe-os+1)
             tokens = map_to_ids(tokens, vocab.word2id)
@@ -168,8 +225,6 @@ class DataLoader(object):
 
 
 
-            # capture id so that we can propagate through model
-            tacred_id = d['id']
 
             data_entry = Entry(token=tokens,
                                pos=pos,
@@ -186,6 +241,8 @@ class DataLoader(object):
                                id=tacred_id)
 
             processed.append(data_entry)
+
+        print('number of changes: ', changes)
 
         return processed
 
