@@ -77,7 +77,7 @@ parser.add_argument('--train_without_shuffling', action='store_true', help='Shou
 parser.add_argument('--mask_in_self_loop', action='store_true', help='Mask in self loop?')
 parser.add_argument('--fix_subj_obj_mask_bug', action='store_true', help='Fix subject/object mask bug?')
 
-parser.add_argument('--primary_engine', choices=('spacy', 'corenlp'), default='spacy', help='Which NLP parse to use?')
+parser.add_argument('--primary_engine', choices=('spacy', 'corenlp'), default='corenlp', help='Which NLP parse to use?')
 
 parser.add_argument('--head', choices=('primary_engine', 'ucca', 'ucca_mh'), default='primary_engine', help='Which bi-lexical parse should we use?')
 parser.add_argument('--ucca_head_plus_primary', action='store_true', help='When using UCCA heads should we also consider primary?')
