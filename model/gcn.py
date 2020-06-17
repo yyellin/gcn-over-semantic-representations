@@ -37,21 +37,30 @@ class GCNRelationModel(nn.Module):
     def __init__(self, opt, emb_matrix=None, ucca_embedding_matrix=None):
         super().__init__()
         self.opt = opt
-        self.emb_matrix = emb_matrix
-        self.ucca_embedding_matrix = ucca_embedding_matrix
+        self.emb_matrix = torch.from_numpy(emb_matrix) if not emb_matrix is None else None
+        self.ucca_embedding_matrix = torch.from_numpy(ucca_embedding_matrix) if not ucca_embedding_matrix is None else None
 
-        # create embedding layers
-        self.emb = nn.Embedding(opt['vocab_size'], opt['emb_dim'], padding_idx=constant.PAD_ID)
-        self.pos_emb = nn.Embedding(len(constant.SPACY_POS_TO_ID), opt['pos_dim']) if opt['pos_dim'] > 0 else None
-        self.ner_emb = nn.Embedding(len(constant.SPACY_NER_TO_ID), opt['ner_dim']) if opt['ner_dim'] > 0 else None
-        self.ucca_emb = nn.Embedding(opt['ucca_embedding_vocab_size'], opt['ucca_embedding_dim']) if opt['ucca_embedding_dim'] > 0 else None
-        self.coref_emb = nn.Embedding(len(constant.ALL_NER_TYPES)*3, opt['coref_dim']) if opt['coref_dim'] > 0 else None
+        # UD segment
+        self.ud_emb = nn.Embedding(opt['vocab_size'], opt['emb_dim'], padding_idx=constant.PAD_ID)
+        self.ud_pos_emb = nn.Embedding(len(constant.SPACY_POS_TO_ID), opt['pos_dim']) if opt['pos_dim'] > 0 else None
+        self.ud_ner_emb = nn.Embedding(len(constant.SPACY_NER_TO_ID), opt['ner_dim']) if opt['ner_dim'] > 0 else None
+        self.ud_ucca_emb = nn.Embedding(opt['ucca_embedding_vocab_size'], opt['ucca_embedding_dim']) if opt['ucca_embedding_dim'] > 0 else None
+        self.ud_coref_emb = nn.Embedding(len(constant.ALL_NER_TYPES)*3, opt['coref_dim']) if opt['coref_dim'] > 0 else None
 
-        embeddings = (self.emb, self.pos_emb, self.ner_emb, self.ucca_emb, self.coref_emb)
-        self.init_embeddings()
+        self.init_embeddings(self.ud_emb, self.ud_ucca_emb)
+        ud_embeddings = (self.ud_emb, self.ud_pos_emb, self.ud_ner_emb, self.ud_ucca_emb, self.ud_coref_emb)
+        self.gcn_ud = GCN(opt, ud_embeddings, opt['hidden_dim'], opt['num_layers'])
 
-        # gcn layer
-        self.gcn = GCN(opt, embeddings, opt['hidden_dim'], opt['num_layers'])
+        # UCCA segment
+        self.ucca_emb = nn.Embedding(opt['vocab_size'], opt['emb_dim'], padding_idx=constant.PAD_ID)
+        self.ucca_pos_emb = nn.Embedding(len(constant.SPACY_POS_TO_ID), opt['pos_dim']) if opt['pos_dim'] > 0 else None
+        self.ucca_ner_emb = nn.Embedding(len(constant.SPACY_NER_TO_ID), opt['ner_dim']) if opt['ner_dim'] > 0 else None
+        self.ucca_ucca_emb = nn.Embedding(opt['ucca_embedding_vocab_size'], opt['ucca_embedding_dim']) if opt['ucca_embedding_dim'] > 0 else None
+        self.ucca_coref_emb = nn.Embedding(len(constant.ALL_NER_TYPES)*3, opt['coref_dim']) if opt['coref_dim'] > 0 else None
+
+        self.init_embeddings(self.ucca_emb, self.ucca_ucca_emb)
+        ucca_embeddings = (self.ucca_emb, self.ucca_pos_emb, self.ucca_ner_emb, self.ucca_ucca_emb, self.ucca_coref_emb)
+        self.gcn_ucca = GCN(opt, ucca_embeddings, opt['hidden_dim'], opt['num_layers'])
 
         # output mlp layers
         in_dim = opt['hidden_dim']*3
@@ -60,25 +69,22 @@ class GCNRelationModel(nn.Module):
             layers += [nn.Linear(opt['hidden_dim'], opt['hidden_dim']), nn.ReLU()]
         self.out_mlp = nn.Sequential(*layers)
 
-    def init_embeddings(self):
+    def init_embeddings(self, emb, ucca_emb):
         if self.emb_matrix is None:
-            self.emb.weight.data[1:,:].uniform_(-1.0, 1.0)
+            emb.weight.data[1:,:].uniform_(-1.0, 1.0)
         else:
-            self.emb_matrix = torch.from_numpy(self.emb_matrix)
-            self.emb.weight.data.copy_(self.emb_matrix)
+            emb.weight.data.copy_(self.emb_matrix)
 
         if not self.opt['ucca_embedding_ignore'] and not self.ucca_embedding_matrix is None:
-            self.ucca_embedding_matrix = torch.from_numpy(self.ucca_embedding_matrix)
-            self.ucca_emb.weight.data.copy_(self.ucca_embedding_matrix)
+            ucca_emb.weight.data.copy_(self.ucca_embedding_matrix)
 
         # decide finetuning (for word embeddings, not the other embeddings)
         if self.opt['topn'] <= 0:
             print("Do not finetune word embedding layer.")
-            self.emb.weight.requires_grad = False
+            emb.weight.requires_grad = False
         elif self.opt['topn'] < self.opt['vocab_size']:
             print("Finetune top {} word embeddings.".format(self.opt['topn']))
-            self.emb.weight.register_hook(lambda x: \
-                    keep_partial_grad(x, self.opt['topn']))
+            emb.weight.register_hook(lambda x: keep_partial_grad(x, self.opt['topn']))
         else:
             print("Finetune all embeddings.")
 
@@ -171,36 +177,28 @@ class GCNRelationModel(nn.Module):
             adj = torch.from_numpy(adj)
             return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
 
-        if self.opt['head'] == 'primary_engine' or self.opt['ucca_head_plus_primary']:
-            primary_adj = trees_to_adj(inputs.head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
-            adj = primary_adj
+        ud_adj = trees_to_adj(inputs.head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
+        ud_gcn_out, ud_gcn_out_mask = self.gcn_ud(ud_adj, inputs)
+        ud_gcn_out = ud_gcn_out.masked_fill(ud_gcn_out_mask, -constant.INFINITY_NUMBER)
 
-        if self.opt['head'] == 'ucca':
-            ucca_adj = trees_to_adj(inputs.ucca_head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
-            adj = ucca_adj
+        ucca_adj = dags_to_adj_from_dist_to_path(inputs.ucca_multi_head, inputs.ucca_dist_from_mh_path, inputs.len, self.opt['prune_k'])
+        ucca_gcn_out, ucca_gcn_out_mask = self.gcn_ucca(ucca_adj, inputs)
+        ucca_gcn_out = ucca_gcn_out.masked_fill(ud_gcn_out_mask, -constant.INFINITY_NUMBER)
 
-        if self.opt['head'] == 'ucca_mh':
-            ucca_adj = dags_to_adj_from_dist_to_path(inputs.ucca_multi_head, inputs.ucca_dist_from_mh_path, inputs.len, self.opt['prune_k'])
-            adj = ucca_adj
+        gcn_out = torch.max(ud_gcn_out, ucca_gcn_out)
 
-        if self.opt['head'] != 'primary_engine' and self.opt['ucca_head_plus_primary']:
-            adj = (primary_adj + ucca_adj).eq(0).eq(0).float()
-
-        h, pool_mask = self.gcn(adj, inputs)
-        
-        # pooling
+      # pooling
         subj_mask = set_cuda(get_long_tensor(inputs.subj_p, inputs.batch_size ), self.opt['cuda']).eq(0).eq(0).unsqueeze(2) # invert mask
         obj_mask = set_cuda(get_long_tensor(inputs.obj_p, inputs.batch_size ), self.opt['cuda']).eq(0).eq(0).unsqueeze(2) # invert mask
 
-        if self.opt['fix_subj_obj_mask_bug']:
-            subj_mask = ~(~subj_mask & ~pool_mask)
-            obj_mask = ~(~obj_mask & ~pool_mask)
+        # if self.opt['fix_subj_obj_mask_bug']:
+        #     subj_mask = ~(~subj_mask & ~pool_mask)
+        #     obj_mask = ~(~obj_mask & ~pool_mask)
 
+        h_out = torch.max(gcn_out, 1)[0]
+        subj_out = pool(gcn_out, subj_mask)
+        obj_out = pool(gcn_out, obj_mask)
 
-        pool_type = self.opt['pooling']
-        h_out = pool(h, pool_mask, type=pool_type)
-        subj_out = pool(h, subj_mask, type=pool_type)
-        obj_out = pool(h, obj_mask, type=pool_type)
         outputs = torch.cat([h_out, subj_out, obj_out], dim=1)
         outputs = self.out_mlp(outputs)
 
@@ -274,12 +272,15 @@ class GCN(nn.Module):
         else:
             gcn_inputs = embs
         
-        # gcn layer
-        denom = adj.sum(2).unsqueeze(2) + 1
-        mask = (adj.sum(2) + adj.sum(1)).eq(0).unsqueeze(2)
         # zero out adj for ablation
         if self.opt.get('no_adj', False):
             adj = torch.zeros_like(adj)
+            wait_here = True
+
+
+        # gcn layer
+        denom = adj.sum(2).unsqueeze(2) + 1
+        mask = (adj.sum(2) + adj.sum(1)).eq(0).unsqueeze(2)
 
         if self.opt['mask_in_self_loop']:
             flip_mask = adj.sum(2).gt(0).float().unsqueeze(2)
@@ -300,16 +301,9 @@ class GCN(nn.Module):
 
         return gcn_inputs, mask
 
-def pool(h, mask, type='max'):
-    if type == 'max':
-        h = h.masked_fill(mask, -constant.INFINITY_NUMBER)
-        return torch.max(h, 1)[0]
-    elif type == 'avg':
-        h = h.masked_fill(mask, 0)
-        return h.sum(1) / (mask.size(1) - mask.float().sum(1))
-    else:
-        h = h.masked_fill(mask, 0)
-        return h.sum(1)
+def pool(h, mask):
+    h = h.masked_fill(mask, -constant.INFINITY_NUMBER)
+    return torch.max(h, 1)[0]
 
 def rnn_zero_state(batch_size, hidden_dim, num_layers, bidirectional=True, use_cuda=True):
     total_layers = num_layers * 2 if bidirectional else num_layers
