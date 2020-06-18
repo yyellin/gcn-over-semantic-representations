@@ -183,7 +183,7 @@ class GCNRelationModel(nn.Module):
 
         ucca_adj = dags_to_adj_from_dist_to_path(inputs.ucca_multi_head, inputs.ucca_dist_from_mh_path, inputs.len, self.opt['prune_k'])
         ucca_gcn_out, ucca_gcn_out_mask = self.gcn_ucca(ucca_adj, inputs)
-        ucca_gcn_out = ucca_gcn_out.masked_fill(ud_gcn_out_mask, -constant.INFINITY_NUMBER)
+        ucca_gcn_out = ucca_gcn_out.masked_fill(ucca_gcn_out_mask, -constant.INFINITY_NUMBER)
 
         gcn_out = torch.max(ud_gcn_out, ucca_gcn_out)
 
