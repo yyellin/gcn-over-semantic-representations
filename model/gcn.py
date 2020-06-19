@@ -191,9 +191,11 @@ class GCNRelationModel(nn.Module):
         subj_mask = set_cuda(get_long_tensor(inputs.subj_p, inputs.batch_size ), self.opt['cuda']).eq(0).eq(0).unsqueeze(2) # invert mask
         obj_mask = set_cuda(get_long_tensor(inputs.obj_p, inputs.batch_size ), self.opt['cuda']).eq(0).eq(0).unsqueeze(2) # invert mask
 
-        # if self.opt['fix_subj_obj_mask_bug']:
-        #     subj_mask = ~(~subj_mask & ~pool_mask)
-        #     obj_mask = ~(~obj_mask & ~pool_mask)
+        if self.opt['fix_subj_obj_mask_bug']:
+            pool_mask = ud_gcn_out_mask & ucca_gcn_out_mask
+
+            subj_mask = ~(~subj_mask & ~pool_mask)
+            obj_mask = ~(~obj_mask & ~pool_mask)
 
         h_out = torch.max(gcn_out, 1)[0]
         subj_out = pool(gcn_out, subj_mask)
