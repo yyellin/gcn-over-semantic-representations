@@ -92,6 +92,7 @@ parser.add_argument('--ucca_embedding_source', choices=('min_sub_tree', 'all'), 
 
 parser.add_argument('--entity_fix_csv', type=str, help='correct subj or obj entity identification')
 
+parser.add_argument('--mgcn_feed_both', action='store_true', help='best to take a look at the code to understand')
 
 
 args = parser.parse_args()

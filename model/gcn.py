@@ -63,7 +63,8 @@ class GCNRelationModel(nn.Module):
         self.gcn_ucca = GCN(opt, ucca_embeddings, opt['hidden_dim'], opt['num_layers'])
 
         # output mlp layers
-        in_dim = opt['hidden_dim']*3
+
+        in_dim = opt['hidden_dim'] * (2 if opt['mgcn_feed_both'] else 3)
         layers = [nn.Linear(in_dim, opt['hidden_dim']), nn.ReLU()]
         for _ in range(self.opt['mlp_layers']-1):
             layers += [nn.Linear(opt['hidden_dim'], opt['hidden_dim']), nn.ReLU()]
@@ -185,23 +186,35 @@ class GCNRelationModel(nn.Module):
         ucca_gcn_out, ucca_gcn_out_mask = self.gcn_ucca(ucca_adj, inputs)
         ucca_gcn_out = ucca_gcn_out.masked_fill(ucca_gcn_out_mask, -constant.INFINITY_NUMBER)
 
-        gcn_out = torch.max(ud_gcn_out, ucca_gcn_out)
 
       # pooling
-        subj_mask = set_cuda(get_long_tensor(inputs.subj_p, inputs.batch_size ), self.opt['cuda']).eq(0).eq(0).unsqueeze(2) # invert mask
-        obj_mask = set_cuda(get_long_tensor(inputs.obj_p, inputs.batch_size ), self.opt['cuda']).eq(0).eq(0).unsqueeze(2) # invert mask
+        if not self.opt['mgcn_feed_both']:
+            gcn_out = torch.max(ud_gcn_out, ucca_gcn_out)
 
-        if self.opt['fix_subj_obj_mask_bug']:
-            pool_mask = ud_gcn_out_mask & ucca_gcn_out_mask
+            subj_mask = set_cuda(get_long_tensor(inputs.subj_p, inputs.batch_size ), self.opt['cuda']).eq(0).eq(0).unsqueeze(2) # invert mask
+            obj_mask = set_cuda(get_long_tensor(inputs.obj_p, inputs.batch_size ), self.opt['cuda']).eq(0).eq(0).unsqueeze(2) # invert mask
 
-            subj_mask = ~(~subj_mask & ~pool_mask)
-            obj_mask = ~(~obj_mask & ~pool_mask)
+            if self.opt['fix_subj_obj_mask_bug']:
+                pool_mask = ud_gcn_out_mask & ucca_gcn_out_mask
 
-        h_out = torch.max(gcn_out, 1)[0]
-        subj_out = pool(gcn_out, subj_mask)
-        obj_out = pool(gcn_out, obj_mask)
+                subj_mask = ~(~subj_mask & ~pool_mask)
+                obj_mask = ~(~obj_mask & ~pool_mask)
 
-        outputs = torch.cat([h_out, subj_out, obj_out], dim=1)
+            h_out = torch.max(gcn_out, 1)[0]
+            subj_out = pool(gcn_out, subj_mask)
+            obj_out = pool(gcn_out, obj_mask)
+
+            outputs = torch.cat([h_out, subj_out, obj_out], dim=1)
+
+        else:
+            outputs = torch.cat([ud_gcn_out, ucca_gcn_out], dim=1)
+            h_out = torch.max(outputs, 1)[0]
+
+            ud_gcn_out = torch.max(ud_gcn_out, 1)[0]
+            ucca_gcn_out = torch.max(ucca_gcn_out, 1)[0]
+
+            outputs = torch.cat([ud_gcn_out, ucca_gcn_out], dim=1)
+
         outputs = self.out_mlp(outputs)
 
         return outputs, h_out
