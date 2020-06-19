@@ -44,7 +44,7 @@ class GCNRelationModel(nn.Module):
         self.ud_emb = nn.Embedding(opt['vocab_size'], opt['emb_dim'], padding_idx=constant.PAD_ID)
         self.ud_pos_emb = nn.Embedding(len(constant.SPACY_POS_TO_ID), opt['pos_dim']) if opt['pos_dim'] > 0 else None
         self.ud_ner_emb = nn.Embedding(len(constant.SPACY_NER_TO_ID), opt['ner_dim']) if opt['ner_dim'] > 0 else None
-        self.ud_ucca_emb = nn.Embedding(opt['ucca_embedding_vocab_size'], opt['ucca_embedding_dim']) if opt['ucca_embedding_dim'] > 0 else None
+        self.ud_ucca_emb = nn.Embedding(opt['ucca_embedding_vocab_size'], opt['ucca_embedding_dim']) if opt['ucca_embedding_dim'] > 0 and opt['ucca_embedding_for_ud_too'] else None
         self.ud_coref_emb = nn.Embedding(len(constant.ALL_NER_TYPES)*3, opt['coref_dim']) if opt['coref_dim'] > 0 else None
 
         self.init_embeddings(self.ud_emb, self.ud_ucca_emb)
@@ -64,7 +64,7 @@ class GCNRelationModel(nn.Module):
 
         # output mlp layers
 
-        in_dim = opt['hidden_dim'] * (2 if opt['mgcn_feed_both'] else 3)
+        in_dim = opt['hidden_dim'] * (2 if opt['gcn_pooling_method'] == 'seperate_gcn' else 3)
         layers = [nn.Linear(in_dim, opt['hidden_dim']), nn.ReLU()]
         for _ in range(self.opt['mlp_layers']-1):
             layers += [nn.Linear(opt['hidden_dim'], opt['hidden_dim']), nn.ReLU()]
@@ -188,7 +188,7 @@ class GCNRelationModel(nn.Module):
 
 
       # pooling
-        if not self.opt['mgcn_feed_both']:
+        if self.opt['gcn_pooling_method'] == 'merged_gcn_plus_subj_and_obj':
             gcn_out = torch.max(ud_gcn_out, ucca_gcn_out)
 
             subj_mask = set_cuda(get_long_tensor(inputs.subj_p, inputs.batch_size ), self.opt['cuda']).eq(0).eq(0).unsqueeze(2) # invert mask
@@ -206,7 +206,7 @@ class GCNRelationModel(nn.Module):
 
             outputs = torch.cat([h_out, subj_out, obj_out], dim=1)
 
-        else:
+        elif self.opt['gcn_pooling_method'] == 'seperate_gcn':
             outputs = torch.cat([ud_gcn_out, ucca_gcn_out], dim=1)
             h_out = torch.max(outputs, 1)[0]
 

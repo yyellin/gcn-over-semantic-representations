@@ -83,16 +83,18 @@ parser.add_argument('--ucca_head_plus_primary', action='store_true', help='When 
 
 parser.add_argument('--coref_dim', type=int, default=0, help='COREF embedding dimension (available only when primary_engine=corenlp).')
 
+parser.add_argument('--entity_fix_csv', type=str, help='correct subj or obj entity identification')
+
 parser.add_argument('--ucca_embedding_dim', type=int, default=0, help='UCCA Path to Root Emdedding vector dimension.')
 parser.add_argument('--ucca_embedding_dir', default=r'C:\Users\JYellin\re_1\tacred\ucca-embedding2', help='Output vocab directory.')
 parser.add_argument('--ucca_embedding_file', default='ucca_path_embeddings', help='UCCA Path to Root Embedding vector file')
 parser.add_argument('--ucca_embedding_index_file', default='ucca_path_embedding_index', help='UCCA Path to Root Embedding vector file')
 parser.add_argument('--ucca_embedding_ignore', action='store_true', help='Do not initialize UCCA embedding with prepared matrix')
 parser.add_argument('--ucca_embedding_source', choices=('min_sub_tree', 'all'), default='min_sub_tree', help='use all embeddings or just those that belong to UCCA\'s min subtree')
+parser.add_argument('--ucca_embedding_for_ud_too', action='store_true', help='when embeddings enabled to we use them for UD GCP too?')
 
-parser.add_argument('--entity_fix_csv', type=str, help='correct subj or obj entity identification')
+parser.add_argument('--gcn_pooling_method',  choices=('merged_gcn_plus_subj_and_obj', 'seperate_gcn'), default='merged_gcn_plus_subj_and_obj', help='how do we pool over the GCN outputs?')
 
-parser.add_argument('--mgcn_feed_both', action='store_true', help='best to take a look at the code to understand')
 
 
 args = parser.parse_args()
