@@ -93,7 +93,7 @@ parser.add_argument('--ucca_embedding_ignore', action='store_true', help='Do not
 parser.add_argument('--ucca_embedding_source', choices=('min_sub_tree', 'all'), default='min_sub_tree', help='use all embeddings or just those that belong to UCCA\'s min subtree')
 parser.add_argument('--ucca_embedding_for_ud_too', action='store_true', help='when embeddings enabled to we use them for UD GCP too?')
 
-parser.add_argument('--gcn_pooling_method',  choices=('merged_gcn_plus_subj_and_obj', 'seperate_gcn'), default='merged_gcn_plus_subj_and_obj', help='how do we pool over the GCN outputs?')
+parser.add_argument('--gcn_pooling_method',  choices=('merged_gcn_plus_subj_and_obj', 'seperate_gcn', 'seperate_gcn_plus_subj_and_obj'), default='merged_gcn_plus_subj_and_obj', help='how do we pool over the GCN outputs?')
 
 
 

@@ -64,7 +64,14 @@ class GCNRelationModel(nn.Module):
 
         # output mlp layers
 
-        in_dim = opt['hidden_dim'] * (2 if opt['gcn_pooling_method'] == 'seperate_gcn' else 3)
+        if opt['gcn_pooling_method'] == 'seperate_gcn':
+            in_dim_factor = 2
+        elif opt['gcn_pooling_method'] == 'seperate_gcn_plus_subj_and_obj':
+            in_dim_factor = 6
+        else:
+            in_dim_factor = 3
+
+        in_dim = opt['hidden_dim'] * in_dim_factor
         layers = [nn.Linear(in_dim, opt['hidden_dim']), nn.ReLU()]
         for _ in range(self.opt['mlp_layers']-1):
             layers += [nn.Linear(opt['hidden_dim'], opt['hidden_dim']), nn.ReLU()]
@@ -214,6 +221,29 @@ class GCNRelationModel(nn.Module):
             ucca_gcn_out = torch.max(ucca_gcn_out, 1)[0]
 
             outputs = torch.cat([ud_gcn_out, ucca_gcn_out], dim=1)
+
+        elif self.opt['gcn_pooling_method'] == 'seperate_gcn_plus_subj_and_obj':
+
+            subj_mask = set_cuda(get_long_tensor(inputs.subj_p, inputs.batch_size ), self.opt['cuda']).eq(0).eq(0).unsqueeze(2) # invert mask
+            obj_mask = set_cuda(get_long_tensor(inputs.obj_p, inputs.batch_size ), self.opt['cuda']).eq(0).eq(0).unsqueeze(2) # invert mask
+
+            if self.opt['fix_subj_obj_mask_bug']:
+                pool_mask = ud_gcn_out_mask & ucca_gcn_out_mask
+
+                subj_mask = ~(~subj_mask & ~pool_mask)
+                obj_mask = ~(~obj_mask & ~pool_mask)
+
+            ud_h_out = torch.max(ud_gcn_out, 1)[0]
+            ud_subj_out = pool(ud_gcn_out, subj_mask)
+            ud_obj_out = pool(ud_gcn_out, obj_mask)
+
+            ucca_h_out = torch.max(ucca_gcn_out, 1)[0]
+            ucca_subj_out = pool(ucca_gcn_out, subj_mask)
+            ucca_obj_out = pool(ucca_gcn_out, obj_mask)
+
+            outputs = torch.cat([ud_h_out, ud_subj_out, ud_obj_out, ucca_h_out, ucca_subj_out, ucca_obj_out], dim=1)
+
+            h_out = torch.max(torch.max(ud_gcn_out, ucca_gcn_out), 1)[0]
 
         outputs = self.out_mlp(outputs)
 
