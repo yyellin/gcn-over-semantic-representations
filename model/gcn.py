@@ -44,22 +44,22 @@ class GCNRelationModel(nn.Module):
         self.ud_emb = nn.Embedding(opt['vocab_size'], opt['emb_dim'], padding_idx=constant.PAD_ID)
         self.ud_pos_emb = nn.Embedding(len(constant.SPACY_POS_TO_ID), opt['pos_dim']) if opt['pos_dim'] > 0 else None
         self.ud_ner_emb = nn.Embedding(len(constant.SPACY_NER_TO_ID), opt['ner_dim']) if opt['ner_dim'] > 0 else None
-        self.ud_ucca_emb = nn.Embedding(opt['ucca_embedding_vocab_size'], opt['ucca_embedding_dim']) if opt['ucca_embedding_dim'] > 0 and opt['ucca_embedding_for_ud_too'] else None
+        self.ud_ucca_path_emb = nn.Embedding(opt['ucca_embedding_vocab_size'], opt['ucca_embedding_dim']) if opt['ucca_embedding_dim'] > 0 and opt['ucca_embedding_for_ud_too'] else None
         self.ud_coref_emb = nn.Embedding(len(constant.ALL_NER_TYPES)*3, opt['coref_dim']) if opt['coref_dim'] > 0 else None
 
-        self.init_embeddings(self.ud_emb, self.ud_ucca_emb)
-        ud_embeddings = (self.ud_emb, self.ud_pos_emb, self.ud_ner_emb, self.ud_ucca_emb, self.ud_coref_emb)
+        self.init_embeddings(self.ud_emb, self.ud_ucca_path_emb)
+        ud_embeddings = (self.ud_emb, self.ud_pos_emb, self.ud_ner_emb, self.ud_ucca_path_emb, self.ud_coref_emb)
         self.gcn_ud = GCN(opt, ud_embeddings, opt['hidden_dim'], opt['num_layers'])
 
         # UCCA segment
         self.ucca_emb = nn.Embedding(opt['vocab_size'], opt['emb_dim'], padding_idx=constant.PAD_ID)
         self.ucca_pos_emb = nn.Embedding(len(constant.SPACY_POS_TO_ID), opt['pos_dim']) if opt['pos_dim'] > 0 else None
         self.ucca_ner_emb = nn.Embedding(len(constant.SPACY_NER_TO_ID), opt['ner_dim']) if opt['ner_dim'] > 0 else None
-        self.ucca_ucca_emb = nn.Embedding(opt['ucca_embedding_vocab_size'], opt['ucca_embedding_dim']) if opt['ucca_embedding_dim'] > 0 else None
+        self.ucca_ucca_path_emb = nn.Embedding(opt['ucca_embedding_vocab_size'], opt['ucca_embedding_dim']) if opt['ucca_embedding_dim'] > 0 else None
         self.ucca_coref_emb = nn.Embedding(len(constant.ALL_NER_TYPES)*3, opt['coref_dim']) if opt['coref_dim'] > 0 else None
 
-        self.init_embeddings(self.ucca_emb, self.ucca_ucca_emb)
-        ucca_embeddings = (self.ucca_emb, self.ucca_pos_emb, self.ucca_ner_emb, self.ucca_ucca_emb, self.ucca_coref_emb)
+        self.init_embeddings(self.ucca_emb, self.ucca_ucca_path_emb)
+        ucca_embeddings = (self.ucca_emb, self.ucca_pos_emb, self.ucca_ner_emb, self.ucca_ucca_path_emb, self.ucca_coref_emb)
         self.gcn_ucca = GCN(opt, ucca_embeddings, opt['hidden_dim'], opt['num_layers'])
 
         # output mlp layers
@@ -70,14 +70,14 @@ class GCNRelationModel(nn.Module):
             layers += [nn.Linear(opt['hidden_dim'], opt['hidden_dim']), nn.ReLU()]
         self.out_mlp = nn.Sequential(*layers)
 
-    def init_embeddings(self, emb, ucca_emb):
+    def init_embeddings(self, emb, ucca_path_emb):
         if self.emb_matrix is None:
             emb.weight.data[1:,:].uniform_(-1.0, 1.0)
         else:
             emb.weight.data.copy_(self.emb_matrix)
 
-        if not self.opt['ucca_embedding_ignore'] and not self.ucca_embedding_matrix is None:
-            ucca_emb.weight.data.copy_(self.ucca_embedding_matrix)
+        if not ucca_path_emb is None and not self.opt['ucca_embedding_ignore']:
+            ucca_path_emb.weight.data.copy_(self.ucca_embedding_matrix)
 
         # decide finetuning (for word embeddings, not the other embeddings)
         if self.opt['topn'] <= 0:
