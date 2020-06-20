@@ -258,7 +258,7 @@ class GCN(nn.Module):
         self.layers = num_layers
         self.use_cuda = opt['cuda']
         self.mem_dim = mem_dim
-        self.in_dim = opt['emb_dim'] + opt['pos_dim'] + opt['ner_dim'] + opt['ucca_embedding_dim'] + opt['coref_dim']
+        self.in_dim = sum([embedding.embedding_dim for embedding in embeddings if embedding]) #opt['emb_dim'] + opt['pos_dim'] + opt['ner_dim'] + opt['ucca_embedding_dim'] + opt['coref_dim']
 
         self.emb, self.pos_emb, self.ner_emb, self.ucca_emb, self.coref_emb = embeddings
 
@@ -298,13 +298,13 @@ class GCN(nn.Module):
 
         word_embs = self.emb(inputs.word)
         embs = [word_embs]
-        if self.opt['pos_dim'] > 0:
+        if self.pos_emb:
             embs += [self.pos_emb(inputs.pos)]
-        if self.opt['ner_dim'] > 0:
+        if self.ner_emb:
             embs += [self.ner_emb(inputs.ner)]
-        if self.opt['ucca_embedding_dim'] > 0:
+        if self.ucca_emb:
             embs += [self.ucca_emb(inputs.ucca_enc)]
-        if self.opt['coref_dim'] > 0:
+        if self.coref_emb:
             embs += [self.coref_emb(inputs.coref)]
 
 
