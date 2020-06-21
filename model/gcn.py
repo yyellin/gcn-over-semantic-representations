@@ -243,7 +243,7 @@ class GCNRelationModel(nn.Module):
 
             outputs = torch.cat([ud_h_out, ud_subj_out, ud_obj_out, ucca_h_out, ucca_subj_out, ucca_obj_out], dim=1)
 
-            h_out = torch.max(torch.max(ud_gcn_out, ucca_gcn_out), 1)[0]
+            h_out = torch.max(ud_gcn_out, ucca_gcn_out)
 
         outputs = self.out_mlp(outputs)
 
