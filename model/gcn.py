@@ -51,7 +51,8 @@ class GCNRelationModel(nn.Module):
         self.init_embeddings()
 
         # gcn layer
-        self.gcn = GCN(opt, embeddings, opt['hidden_dim'], opt['num_layers'])
+        self.gcn_ud = GCN(opt, embeddings, opt['hidden_dim'], opt['num_layers'])
+        self.gcn_ucca = GCN(opt, embeddings, opt['hidden_dim'], opt['num_layers'])
 
         # output mlp layers
         in_dim = opt['hidden_dim']*3
@@ -118,90 +119,30 @@ class GCNRelationModel(nn.Module):
             adj = torch.from_numpy(adj)
             return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
 
-        def dags_to_adj(multi_heads, l, prune, subj_pos, obj_pos):
-            batch_len = len(multi_heads)
+        ud_adj = trees_to_adj(inputs.head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
+        ud_gcn_out, ud_gcn_out_mask = self.gcn_ud(ud_adj, inputs)
+        ud_gcn_out = ud_gcn_out.masked_fill(ud_gcn_out_mask, -constant.INFINITY_NUMBER)
 
-            adj_matrices = []
-            for sent_idx in range(batch_len):
-                sent_len = l[sent_idx]
-                adj_matrix = np.zeros((maxlen, maxlen), dtype=np.float32)
-                subj = [token_id for token_id in range(sent_len) if subj_pos[sent_idx][token_id] == 0]
-                obj= [token_id for token_id in range(sent_len) if obj_pos[sent_idx][token_id] == 0]
-                edges = {(head_id-1, token_id):True for token_id in range(sent_len) for head_id in multi_heads[sent_idx][token_id] }
+        ucca_adj = dags_to_adj_from_dist_to_path(inputs.ucca_multi_head, inputs.ucca_dist_from_mh_path, inputs.len, self.opt['prune_k'])
+        ucca_gcn_out, ucca_gcn_out_mask = self.gcn_ucca(ucca_adj, inputs)
+        ucca_gcn_out = ucca_gcn_out.masked_fill(ucca_gcn_out_mask, -constant.INFINITY_NUMBER)
 
-                extended_edges = edges.copy()
-                for edge in itertools.combinations(subj, 2):
-                    extended_edges[edge] = True
-                for edge in itertools.combinations(obj, 2):
-                    extended_edges[edge] = True
+        gcn_out = torch.max(ud_gcn_out, ucca_gcn_out)
 
-                graph = networkx.Graph(list(extended_edges.keys()))
-                try:
-                    on_path = networkx.shortest_path(graph, source=subj[0], target=obj[0])
-                except networkx.NetworkXNoPath:
-                    #adj_matrix = np.ones((maxlen, maxlen), dtype=np.float32)
-                    print('shit')
-                    adj_matrices.append(adj_matrix.reshape(1, maxlen, maxlen))
-                    continue
-
-                all_shortest_paths_lengths = {start: targets for start, targets in networkx.shortest_path_length(graph)}
-
-                token_distances = []
-                for token_id in range(sent_len):
-                    distance = 0
-                    if token_id not in on_path:
-                        distances_to_path = {target: distance_to_target
-                                             for target, distance_to_target in all_shortest_paths_lengths[token_id].items()
-                                             if target in on_path}
-                        distance = min(distances_to_path.values(), default=constant.INFINITY_NUMBER)
-
-                    token_distances.append(distance)
-
-                dgraph = networkx.DiGraph(list(edges.keys()))
-                for i in dgraph.nodes():
-                    if i >= 0 and token_distances[i] <= prune:
-                        for j in dgraph.successors(i):
-                            if j >= 0 and token_distances[j] <= prune:
-                                adj_matrix[i, j] = 1
-                adj_matrix = adj_matrix + adj_matrix.T
-
-                adj_matrices.append(adj_matrix.reshape(1, maxlen, maxlen))
-
-            adj = np.concatenate(adj_matrices, axis=0)
-            adj = torch.from_numpy(adj)
-            return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
-
-        if self.opt['head'] == 'primary_engine' or self.opt['ucca_head_plus_primary']:
-            primary_adj = trees_to_adj(inputs.head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
-            adj = primary_adj
-
-        if self.opt['head'] == 'ucca':
-            ucca_adj = trees_to_adj(inputs.ucca_head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
-            adj = ucca_adj
-
-        if self.opt['head'] == 'ucca_mh':
-            ucca_adj = dags_to_adj_from_dist_to_path(inputs.ucca_multi_head, inputs.ucca_dist_from_mh_path, inputs.len, self.opt['prune_k'])
-            adj = ucca_adj
-
-        if self.opt['head'] != 'primary_engine' and self.opt['ucca_head_plus_primary']:
-            adj = (primary_adj + ucca_adj).eq(0).eq(0).float()
-
-        h, pool_mask = self.gcn(adj, inputs)
-        
-        # pooling
-        subj_mask = set_cuda(get_long_tensor(inputs.subj_p, inputs.batch_size ), self.opt['cuda']).eq(0).eq(0).unsqueeze(2) # invert mask
-        obj_mask = set_cuda(get_long_tensor(inputs.obj_p, inputs.batch_size ), self.opt['cuda']).eq(0).eq(0).unsqueeze(2) # invert mask
+        subj_mask = set_cuda(get_long_tensor(inputs.subj_p, inputs.batch_size), self.opt['cuda']).eq(0).eq(0).unsqueeze(2)  # invert mask
+        obj_mask = set_cuda(get_long_tensor(inputs.obj_p, inputs.batch_size), self.opt['cuda']).eq(0).eq(0).unsqueeze(2)  # invert mask
 
         if self.opt['fix_subj_obj_mask_bug']:
+            pool_mask = ud_gcn_out_mask & ucca_gcn_out_mask
             subj_mask = ~(~subj_mask & ~pool_mask)
             obj_mask = ~(~obj_mask & ~pool_mask)
 
+        h_out = torch.max(gcn_out, 1)[0]
+        subj_out = pool(gcn_out, subj_mask)
+        obj_out = pool(gcn_out, obj_mask)
 
-        pool_type = self.opt['pooling']
-        h_out = pool(h, pool_mask, type=pool_type)
-        subj_out = pool(h, subj_mask, type=pool_type)
-        obj_out = pool(h, obj_mask, type=pool_type)
         outputs = torch.cat([h_out, subj_out, obj_out], dim=1)
+
         outputs = self.out_mlp(outputs)
 
         return outputs, h_out
@@ -300,16 +241,9 @@ class GCN(nn.Module):
 
         return gcn_inputs, mask
 
-def pool(h, mask, type='max'):
-    if type == 'max':
-        h = h.masked_fill(mask, -constant.INFINITY_NUMBER)
-        return torch.max(h, 1)[0]
-    elif type == 'avg':
-        h = h.masked_fill(mask, 0)
-        return h.sum(1) / (mask.size(1) - mask.float().sum(1))
-    else:
-        h = h.masked_fill(mask, 0)
-        return h.sum(1)
+def pool(h, mask):
+    h = h.masked_fill(mask, -constant.INFINITY_NUMBER)
+    return torch.max(h, 1)[0]
 
 def rnn_zero_state(batch_size, hidden_dim, num_layers, bidirectional=True, use_cuda=True):
     total_layers = num_layers * 2 if bidirectional else num_layers
