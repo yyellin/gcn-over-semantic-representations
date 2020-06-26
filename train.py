@@ -93,6 +93,8 @@ parser.add_argument('--ucca_embedding_source', choices=('min_sub_tree', 'all'), 
 
 parser.add_argument('--entity_fix_csv', type=str, help='correct subj or obj entity identification')
 
+parser.add_argument('--random_heads', action='store_true', help='randomize heads')
+
 
 
 args = parser.parse_args()
