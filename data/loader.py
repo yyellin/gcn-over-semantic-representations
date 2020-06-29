@@ -165,7 +165,6 @@ class DataLoader(object):
                 head = [int(x) for x in d['corenlp_heads']]
 
             if opt['random_heads']:
-                assert(opt['head'] == 'primary_engine')
                 head = [i for i in range(l)]
 
             #deprel = map_to_ids(d['stanford_deprel'], constant.DEPREL_TO_ID)
