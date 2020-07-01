@@ -164,8 +164,6 @@ class DataLoader(object):
                 ner = map_to_ids(d['corenlp_ner'], constant.NER_TO_ID)
                 head = [int(x) for x in d['corenlp_heads']]
 
-            if opt['random_heads']:
-                head = [i for i in range(l)]
 
             #deprel = map_to_ids(d['stanford_deprel'], constant.DEPREL_TO_ID)
 

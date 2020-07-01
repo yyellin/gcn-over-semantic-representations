@@ -186,6 +186,13 @@ class GCNRelationModel(nn.Module):
         if self.opt['head'] != 'primary_engine' and self.opt['ucca_head_plus_primary']:
             adj = (primary_adj + ucca_adj).eq(0).eq(0).float()
 
+        if self.opt['random_heads']:
+            random_heads = [ [i for i in range(len) ] for len in inputs.len]
+            random_adj = trees_to_adj(random_heads, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
+            adj = (adj + random_adj).eq(0).eq(0).float()
+
+
+
         h, pool_mask = self.gcn(adj, inputs)
         
         # pooling
