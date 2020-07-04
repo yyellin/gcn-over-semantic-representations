@@ -45,10 +45,14 @@ class GCNEnsembleEvaluator(object):
     def predict(self, batch1, batch2, cuda, unsort=True):
 
         input1, labels1 = Input.unpack_batch(batch1, cuda)
+        input2, labels2 = Input.unpack_batch(batch2, cuda)
+
+        assert input1.id == input2.id
+        assert input1.orig_idx == input2.orig_idx
+
         self.model1.eval()
         logits1, _ = self.model1(input1)
 
-        input2, labels2 = Input.unpack_batch(batch2, cuda)
         self.model2.eval()
         logits2, _ = self.model2(input2)
 
@@ -57,8 +61,10 @@ class GCNEnsembleEvaluator(object):
         probs = F.softmax(logits, 1).data.cpu().numpy().tolist()
         predictions = np.argmax(logits.data.cpu().numpy(), axis=1).tolist()
 
+
+
         if unsort:
-            _, predictions, probs, ids = [list(t) for t in zip(*sorted(zip(input.orig_idx, predictions, probs, input.id)))]
+            _, predictions, probs, ids = [list(t) for t in zip(*sorted(zip(input1.orig_idx, predictions, probs, input1.id)))]
 
         return predictions, probs, ids
 

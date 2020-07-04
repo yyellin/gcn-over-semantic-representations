@@ -99,13 +99,13 @@ all_ids = []
 
 batch_iter = tqdm(batch)
 for i, (b1, b2) in enumerate(batch_iter):
-    preds, probs, _, ids = evaluator.predict(b1, b2, cuda)
+    preds, probs, ids = evaluator.predict(b1, b2, cuda)
     predictions += preds
     all_probs += probs
     all_ids += ids
 
 predictions = [id2label[p] for p in predictions]
-p, r, f1 = scorer.score(batch.gold(), predictions, verbose=True)
+p, r, f1 = scorer.score(batch1.gold(), predictions, verbose=True)
 print("{} set evaluate result: {:.2f}\t{:.2f}\t{:.2f}".format(args.dataset,p,r,f1))
 
 if args.trace_file_for_misses != None:
@@ -115,7 +115,7 @@ if args.trace_file_for_misses != None:
         csv_writer = csv.writer(trace_file_for_misses)
         csv_writer.writerow( ['id', 'gold', 'predicted'])
 
-        for gold, prediction, id in zip(batch.gold(), predictions, all_ids):
+        for gold, prediction, id in zip(batch1.gold(), predictions, all_ids):
             if gold != prediction:
                 csv_writer.writerow( [id, gold, prediction])
 
