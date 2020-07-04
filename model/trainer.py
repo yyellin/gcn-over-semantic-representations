@@ -7,19 +7,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
-from collections import namedtuple
 
+
+from model.input import Input
 from model.gcn import GCNClassifier
 from utils.torch_utils import  get_long_tensor, set_cuda, change_lr, get_optimizer
 
-
-class Input(namedtuple('Input', 'batch_size, word, mask, pos, ner, coref, ucca_enc, len, head, ucca_head, ucca_multi_head, ucca_dist_from_mh_path, subj_p, obj_p, id, orig_idx')):
-    """
-    'Input' objects are similar to 'Batch'; however, all fields that need to be in tensor form, are captured as tensors. Fields
-    that do not need to be in Tensor form continue to be represented in their native formats
-    """
-
-    pass
 
 
 class Trainer(object):
@@ -141,4 +134,6 @@ class GCNTrainer(Trainer):
                       orig_idx=batch.orig_idx)
 
         return input, rel
+
+
 
