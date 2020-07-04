@@ -9,28 +9,26 @@ import numpy as np
 from model.input import Input
 from model.gcn import GCNClassifier
 
-
+from utils import torch_utils, scorer, constant, helper
 
 
 
 class GCNEnsembleEvaluator(object):
 
-    def __init__(self, opt1, model1_file, opt2, model2_file):
-        self.opt1 = opt1
-        self.model1 = GCNClassifier(self.opt1)
-        checkpoint1 = self.get_checkpoint(model1_file)
-        self.model1.load_state_dict(checkpoint1['model'])
+    def __init__(self, model_files):
 
-        self.opt2 = opt2
-        self.model2 = GCNClassifier(self.opt2)
-        checkpoint2 = self.get_checkpoint(model2_file)
-        self.model2.load_state_dict(checkpoint2['model'])
+        self.models = []
 
-        if opt1['cuda']:
-            self.model1.cuda()
+        for model_file in model_files:
+            opt = torch_utils.load_config(model_file)
+            model = GCNClassifier(opt)
+            checkpoint = self.get_checkpoint(model_file)
+            model.load_state_dict(checkpoint['model'])
 
-        if opt2['cuda']:
-            self.model2.cuda()
+            if opt['cuda']:
+                model.cuda()
+
+            self.models.append(model)
 
 
     def get_checkpoint(self, filename):
@@ -42,29 +40,37 @@ class GCNEnsembleEvaluator(object):
             exit()
 
 
-    def predict(self, batch1, batch2, cuda, unsort=True):
+    def predict(self, batches, cuda, unsort=True):
 
-        input1, labels1 = Input.unpack_batch(batch1, cuda)
-        input2, labels2 = Input.unpack_batch(batch2, cuda)
+        anchor_input = None
+        total_logits = None
 
-        assert input1.id == input2.id
-        assert input1.orig_idx == input2.orig_idx
+        for model,batch in zip(self.models, batches):
+            input, labels = Input.unpack_batch(batch, cuda)
 
-        self.model1.eval()
-        logits1, _ = self.model1(input1)
+            if anchor_input is None:
+                anchor_input = input
 
-        self.model2.eval()
-        logits2, _ = self.model2(input2)
+            else:
+                assert input.id == anchor_input.id
+                assert input.orig_idx == anchor_input.orig_idx
 
-        logits = logits1 + logits2
+            model.eval()
+            logits, _ = model(input)
 
-        probs = F.softmax(logits, 1).data.cpu().numpy().tolist()
-        predictions = np.argmax(logits.data.cpu().numpy(), axis=1).tolist()
+            if total_logits is None:
+                total_logits = logits
+            else:
+                total_logits += logits
+
+
+        probs = F.softmax(total_logits, 1).data.cpu().numpy().tolist()
+        predictions = np.argmax(total_logits.data.cpu().numpy(), axis=1).tolist()
 
 
 
         if unsort:
-            _, predictions, probs, ids = [list(t) for t in zip(*sorted(zip(input1.orig_idx, predictions, probs, input1.id)))]
+            _, predictions, probs, ids = [list(t) for t in zip(*sorted(zip(anchor_input.orig_idx, predictions, probs, anchor_input.id)))]
 
         return predictions, probs, ids
 
