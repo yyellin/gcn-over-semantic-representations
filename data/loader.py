@@ -29,7 +29,7 @@ class DataLoader(object):
     """
     Load data from json files, preprocess and prepare batches.
     """
-    def __init__(self, filename, batch_size, opt, vocab, evaluation=False, apply_filters=False, ucca_embedding=None):
+    def __init__(self, json_input, batch_size, opt, vocab, evaluation=False, apply_filters=False, ucca_embedding=None):
         self.batch_size = batch_size
         self.opt = opt
         self.vocab = vocab
@@ -39,10 +39,10 @@ class DataLoader(object):
         self.ucca_embedding = ucca_embedding
         self.field_to_index = {field:index for index, field in enumerate(Entry._fields)}
 
-        with open(filename) as infile:
-            data = json.load(infile)
-        self.raw_data = data
-        data = self.preprocess(data, vocab, opt)
+        # with open(filename) as infile:
+        #     data = json.load(infile)
+        self.raw_data = json_input
+        data = self.preprocess(json_input, vocab, opt)
 
         if not opt['train_without_shuffling'] and not evaluation:
             indices = list(range(len(data)))
@@ -55,7 +55,6 @@ class DataLoader(object):
         # chunk into batches
         data = [data[i:i+batch_size] for i in range(0, len(data), batch_size)]
         self.data = data
-        print("{} batches created for {}".format(len(data), filename))
 
     def preprocess(self, data, vocab, opt):
         """ Preprocess the data and convert to ids. """

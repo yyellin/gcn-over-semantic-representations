@@ -4,6 +4,7 @@ Run evaluation with saved models.
 import random
 import argparse
 import csv
+import json
 from tqdm import tqdm
 import torch
 
@@ -75,7 +76,11 @@ for model_dir in args.model_dirs:
         ucca_embedding =  UccaEmbedding(opt['ucca_embedding_dim'], index_file, embedding_file)
 
     data_file = opt['data_dir'] + '/{}.json'.format(args.dataset)
-    batch = DataLoader(data_file, opt['batch_size'], opt, vocab, evaluation=True, ucca_embedding=ucca_embedding)
+    with open(data_file) as infile:
+        data_input = json.load(infile)
+
+    batch = DataLoader(data_input, opt['batch_size'], opt, vocab, evaluation=True, ucca_embedding=ucca_embedding)
+    print("{} batches created for test".format(len(batch.data)))
     all_batches.append(batch)
 
 
