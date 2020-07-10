@@ -4,6 +4,7 @@ Run evaluation with saved models.
 import random
 import argparse
 import csv
+import json
 from tqdm import tqdm
 import torch
 
@@ -63,7 +64,13 @@ if opt['ucca_embedding_dim'] > 0:
 # load data
 data_file = opt['data_dir'] + '/{}.json'.format(args.dataset)
 print("Loading data from {} with batch size {}...".format(data_file, opt['batch_size']))
-batch = DataLoader(data_file, opt['batch_size'], opt, vocab, evaluation=True, ucca_embedding=ucca_embedding)
+
+with open(data_file) as infile:
+    data_input = json.load(infile)
+
+batch = DataLoader(data_input, opt['batch_size'], opt, vocab, evaluation=True, ucca_embedding=ucca_embedding)
+print("{} batches created for test".format(len(batch.data)))
+
 
 helper.print_config(opt)
 label2id = constant.LABEL_TO_ID

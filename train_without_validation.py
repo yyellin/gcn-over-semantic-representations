@@ -134,17 +134,17 @@ if args.ucca_embedding_dim > 0:
 
 # load data
 print("Loading data from {} with batch size {}...".format(opt['data_dir'], opt['batch_size']))
+
 with open(opt['data_dir'] + '/train.json') as infile:
-    train_input = json.load(infile)
-train_batch = DataLoader(train_input, opt['batch_size'], opt, vocab, evaluation=False, apply_filters=True,
-                         ucca_embedding=ucca_embedding)
-print("{} batches created for train".format(len(train_batch.data)))
+     train_input = json.load(infile)
 
 with open(opt['data_dir'] + '/dev.json') as infile:
     dev_input = json.load(infile)
-dev_batch = DataLoader(dev_input, opt['batch_size'], opt, vocab, evaluation=True, apply_filters=True,
-                       ucca_embedding=ucca_embedding)
-print("{} batches created for dev".format(len(dev_batch.data)))
+
+train_input = train_input + dev_input
+
+train_batch = DataLoader(train_input, opt['batch_size'], opt, vocab, evaluation=False, apply_filters=True, ucca_embedding=ucca_embedding)
+print("{} batches created for merged dev and train".format(len(train_batch.data)))
 
 model_id = opt['id'] if len(opt['id']) > 1 else '0' + opt['id']
 model_save_dir = opt['save_dir'] + '/' + model_id
@@ -172,7 +172,7 @@ else:
     trainer.load(model_file)   
 
 id2label = dict([(v,k) for k,v in label2id.items()])
-dev_score_history = []
+train_loss_history = []
 current_lr = opt['lr']
 
 global_step = 0
@@ -193,42 +193,22 @@ for epoch in range(1, opt['num_epoch']+1):
             print(format_str.format(datetime.now(), global_step, max_steps, epoch,\
                     opt['num_epoch'], loss, duration, current_lr))
 
-    # eval on dev
-    print("Evaluating on dev set...")
-    predictions = []
-    dev_loss = 0
-    for i, batch in enumerate(dev_batch):
-        preds, _, loss, _ = trainer.predict(batch)
-        predictions += preds
-        dev_loss += loss
-    predictions = [id2label[p] for p in predictions]
     train_loss = train_loss / train_batch.num_examples * opt['batch_size'] # avg loss per batch
-    dev_loss = dev_loss / dev_batch.num_examples * opt['batch_size']
 
-    dev_p, dev_r, dev_f1 = scorer.score(dev_batch.gold(), predictions)
-    print("epoch {}: train_loss = {:.6f}, dev_loss = {:.6f}, dev_f1 = {:.4f}".format(epoch,\
-        train_loss, dev_loss, dev_f1))
-    dev_score = dev_f1
-    file_logger.log("{}\t{:.6f}\t{:.6f}\t{:.4f}\t{:.4f}".format(epoch, train_loss, dev_loss, dev_score, max([dev_score] + dev_score_history)))
+    print("epoch {}: train_loss = {:.6f}, dev_loss = {:.6f}, dev_f1 = {:.4f}".format(epoch, train_loss))
+    file_logger.log("{}\t{:.6f}".format(epoch, train_loss))
 
     # save
     model_file = model_save_dir + '/checkpoint_epoch_{}.pt'.format(epoch)
-    trainer.save(model_file, epoch)
-    if epoch == 1 or dev_score > max(dev_score_history):
-        copyfile(model_file, model_save_dir + '/best_model.pt')
-        print("new best model saved.")
-        file_logger.log("new best model saved at epoch {}: {:.2f}\t{:.2f}\t{:.2f}"\
-            .format(epoch, dev_p*100, dev_r*100, dev_score*100))
-    if epoch % opt['save_epoch'] != 0:
-        os.remove(model_file)
+    if epoch % opt['save_epoch'] == 0:
+        trainer.save(model_file, epoch)
 
     # lr schedule
-    if len(dev_score_history) > opt['decay_epoch'] and dev_score <= dev_score_history[-1] and \
-            opt['optim'] in ['sgd', 'adagrad', 'adadelta']:
+    if len(train_loss_history) > opt['decay_epoch'] and train_loss > train_loss_history[-1] and opt['optim'] in ['sgd', 'adagrad', 'adadelta']:
         current_lr *= opt['lr_decay']
         trainer.update_lr(current_lr)
 
-    dev_score_history += [dev_score]
+    train_loss_history += [train_loss]
     print("")
 
 print("Training ended with {} epochs.".format(epoch))
