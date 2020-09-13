@@ -171,26 +171,34 @@ class GCNRelationModel(nn.Module):
             adj = torch.from_numpy(adj)
             return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
 
-        if self.opt['head'] == 'primary_engine' or self.opt['ucca_head_plus_primary']:
-            primary_adj = trees_to_adj(inputs.head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
-            adj = primary_adj
+        ucca_head_adj = None
+        ucca_multi_head_adj = None
+        sequential_adj = None
+        ud_adj = None
 
-        if self.opt['head'] == 'ucca':
-            ucca_adj = trees_to_adj(inputs.ucca_head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
-            adj = ucca_adj
+        if self.opt['ucca_heads']:
+            ucca_head_adj = trees_to_adj(inputs.ucca_head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
 
-        if self.opt['head'] == 'ucca_mh':
-            ucca_adj = dags_to_adj_from_dist_to_path(inputs.ucca_multi_head, inputs.ucca_dist_from_mh_path, inputs.len, self.opt['prune_k'])
-            adj = ucca_adj
+        if self.opt['ucca_multi_heads']:
+            ucca_multi_head_adj = dags_to_adj_from_dist_to_path(inputs.ucca_multi_head, inputs.ucca_dist_from_mh_path, inputs.len, self.opt['prune_k'])
 
-        if self.opt['head'] != 'primary_engine' and self.opt['ucca_head_plus_primary']:
-            adj = (primary_adj + ucca_adj).eq(0).eq(0).float()
+        if self.opt['sequential_heads']:
+            sequential_heads = [ [i for i in range(len) ] for len in inputs.len]
+            sequential_adj = trees_to_adj(sequential_heads, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
 
-        if self.opt['random_heads']:
-            random_heads = [ [i for i in range(len) ] for len in inputs.len]
-            random_adj = trees_to_adj(random_heads, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
-            adj = (adj + random_adj).eq(0).eq(0).float()
+        if self.opt['ud_heads'] or (ucca_head_adj is None and ucca_multi_head_adj is None and sequential_adj is None):
+            ud_adj = trees_to_adj(inputs.head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
 
+        adj = None
+        for one_adj in [ucca_head_adj, ucca_multi_head_adj, sequential_adj, ud_adj]:
+            if one_adj is None:
+                continue
+
+            if adj is None:
+                adj = one_adj
+                continue
+
+            adj = (adj + one_adj).eq(0).eq(0).float()
 
 
         h, pool_mask = self.gcn(adj, inputs)

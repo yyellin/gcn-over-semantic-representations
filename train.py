@@ -80,8 +80,8 @@ parser.add_argument('--fix_subj_obj_mask_bug', action='store_true', help='Fix su
 
 parser.add_argument('--primary_engine', choices=('spacy', 'corenlp'), default='corenlp', help='Which NLP parse to use?')
 
-parser.add_argument('--head', choices=('primary_engine', 'ucca', 'ucca_mh'), default='primary_engine', help='Which bi-lexical parse should we use?')
-parser.add_argument('--ucca_head_plus_primary', action='store_true', help='When using UCCA heads should we also consider primary?')
+#parser.add_argument('--head', choices=('primary_engine', 'ucca', 'ucca_mh'), default='primary_engine', help='Which bi-lexical parse should we use?')
+#parser.add_argument('--ucca_head_plus_primary', action='store_true', help='When using UCCA heads should we also consider primary?')
 
 parser.add_argument('--coref_dim', type=int, default=0, help='COREF embedding dimension (available only when primary_engine=corenlp).')
 
@@ -94,7 +94,10 @@ parser.add_argument('--ucca_embedding_source', choices=('min_sub_tree', 'all'), 
 
 parser.add_argument('--entity_fix_csv', type=str, help='correct subj or obj entity identification')
 
-parser.add_argument('--random_heads', action='store_true', help='randomize heads')
+parser.add_argument('--ud_heads', action='store_true', help='UD heads')
+parser.add_argument('--ucca_heads', action='store_true', help='UCCA single heads')
+parser.add_argument('--ucca_multi_heads', action='store_true', help='UCCA multi heads')
+parser.add_argument('--sequential_heads', action='store_true', help='sequential heads')
 
 
 
