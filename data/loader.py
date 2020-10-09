@@ -74,8 +74,6 @@ class DataLoader(object):
             entity_fix.set_index('id', inplace=True)
             entity_fix_map = entity_fix.to_dict()
 
-        changes = 0
-
         for d in data:
 
             # if apply_filters set skip sentences with ucca_path_len that exceed max_ucca_path
@@ -107,32 +105,14 @@ class DataLoader(object):
             if entity_fix_map and tacred_id in entity_fix_map['alt_subj_start']:
 
                 alt_subj_start = entity_fix_map['alt_subj_start'][tacred_id]
-                alt_subj_end = entity_fix_map['alt_subj_end'][tacred_id]
                 alt_obj_start = entity_fix_map['alt_obj_start'][tacred_id]
-                alt_obj_end = entity_fix_map['alt_obj_end'][tacred_id]
 
-                if np.isnan(alt_subj_start) or np.isnan(alt_subj_end) or np.isnan(alt_obj_start) or np.isnan(alt_obj_end):
+                if np.isnan(alt_subj_start) or d['subj_start'] != int(alt_subj_start):
                     d['relation'] = 'no_relation'
 
-                else:
-                    if d['subj_start'] != int(alt_subj_start):
-                        d['subj_start'] = int(alt_subj_start)
-                        subj_fixed = True
+                if np.isnan(alt_obj_start) or d['obj_start'] != int(alt_obj_start):
+                    d['relation'] = 'no_relation'
 
-                    if d['subj_end'] != int(alt_subj_end):
-                        d['subj_end'] = int(alt_subj_end)
-                        subj_fixed = True
-
-                    if d['obj_start'] != int(alt_obj_start):
-                        d['obj_start'] = int(alt_obj_start)
-                        obj_fixed = True
-
-                    if d['obj_end'] != int(alt_obj_end):
-                        d['obj_end'] = int(alt_obj_end)
-                        obj_fixed = True
-
-                if subj_fixed or obj_fixed:
-                    changes += 1
 
             d['subj_start'] = tac_to_ucca[d['subj_start']][0]
             d['subj_end'] = tac_to_ucca[d['subj_end']][-1]
@@ -144,11 +124,11 @@ class DataLoader(object):
             ss, se = d['subj_start'], d['subj_end']
             os, oe = d['obj_start'], d['obj_end']
 
-            if subj_fixed:
-                d['subj_type'] = next((d['corenlp_ner'][index] for index in range(ss, se+1) if d['corenlp_ner'][index]!='O'), d['subj_type'])
-
-            if obj_fixed:
-                d['obj_type'] = next((d['corenlp_ner'][index] for index in range(ss, se+1) if d['corenlp_ner'][index]!='O'), d['obj_type'])
+            # if subj_fixed:
+            #     d['subj_type'] = next((d['corenlp_ner'][index] for index in range(ss, se+1) if d['corenlp_ner'][index]!='O'), d['subj_type'])
+            #
+            # if obj_fixed:
+            #     d['obj_type'] = next((d['corenlp_ner'][index] for index in range(ss, se+1) if d['corenlp_ner'][index]!='O'), d['obj_type'])
 
             tokens[ss:se+1] = ['SUBJ-'+d['subj_type']] * (se-ss+1)
             tokens[os:oe+1] = ['OBJ-'+d['obj_type']] * (oe-os+1)
@@ -241,8 +221,6 @@ class DataLoader(object):
                                id=tacred_id)
 
             processed.append(data_entry)
-
-        print('number of changes: ', changes)
 
         return processed
 
