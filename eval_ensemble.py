@@ -44,7 +44,7 @@ if cuda:
 anchor_opt = None
 
 model_files = []
-all_batches = []
+model_data = []
 
 for model_dir in args.model_dirs:
     model_file = model_dir + '/' + args.model_file
@@ -79,9 +79,9 @@ for model_dir in args.model_dirs:
     with open(data_file) as infile:
         data_input = json.load(infile)
 
-    batch = DataLoader(data_input, opt['batch_size'], opt, vocab, evaluation=True, ucca_embedding=ucca_embedding)
-    print("{} batches created for test".format(len(batch.data)))
-    all_batches.append(batch)
+    data = DataLoader(data_input, opt['batch_size'], opt, vocab, evaluation=True, ucca_embedding=ucca_embedding)
+    print("{} batches created for test".format(len(data.data)))
+    model_data.append(data)
 
 
 evaluator = GCNEnsembleEvaluator(model_files)
@@ -92,15 +92,17 @@ predictions = []
 all_probs = []
 all_ids = []
 
-batch_iter = tqdm(zip(*all_batches))
-for i, batch in enumerate(batch_iter):
-    preds, probs, ids = evaluator.predict(batch, cuda)
+batch_tuples = zip(*model_data)
+
+batch_tuple_iter = tqdm(batch_tuples)
+for i, data in enumerate(batch_tuple_iter):
+    preds, probs, ids = evaluator.predict(data, cuda)
     predictions += preds
     all_probs += probs
     all_ids += ids
 
 predictions = [id2label[p] for p in predictions]
-p, r, f1 = scorer.score(all_batches[0].gold(), predictions, verbose=True)
+p, r, f1 = scorer.score(model_data[0].gold(), predictions, verbose=True)
 print("{} set evaluate result: {:.2f}\t{:.2f}\t{:.2f}".format(args.dataset,p,r,f1))
 
 if args.trace_file_for_misses != None:
@@ -110,7 +112,7 @@ if args.trace_file_for_misses != None:
         csv_writer = csv.writer(trace_file_for_misses)
         csv_writer.writerow( ['id', 'gold', 'predicted'])
 
-        for gold, prediction, id in zip(all_batches[0].gold(), predictions, all_ids):
+        for gold, prediction, id in zip(model_data[0].gold(), predictions, all_ids):
             if gold != prediction:
                 csv_writer.writerow( [id, gold, prediction])
 

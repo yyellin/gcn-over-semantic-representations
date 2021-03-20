@@ -40,12 +40,12 @@ class GCNEnsembleEvaluator(object):
             exit()
 
 
-    def predict(self, batches, cuda, unsort=True):
+    def predict(self, batch_per_model, cuda, unsort=True):
 
         anchor_input = None
         total_logits = None
 
-        for model,batch in zip(self.models, batches):
+        for model,batch in zip(self.models, batch_per_model):
             input, labels = Input.unpack_batch(batch, cuda)
 
             if anchor_input is None:
