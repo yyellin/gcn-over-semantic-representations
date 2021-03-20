@@ -105,7 +105,7 @@ biassed_prediction = None
 if args.strategy == 'ucca':
     biassed_prediction = biassed_prediction_ucca
 elif args.strategy == 'ucca_and_ud':
-    biassed_prediction = biassed_prediction_ucca_and_ud()
+    biassed_prediction = biassed_prediction_ucca_and_ud
 
 
 models_stuff = [ud, ucca]
