@@ -2,20 +2,17 @@
 biased ensemble evaluation
 """
 
-
 from collections import OrderedDict
 from dataclasses import dataclass
 from typing import List
 
-
 import torch
-import torch.nn.functional as F
 import numpy as np
 
 from model.input import Input
 from model.gcn import GCNClassifier
 
-from utils import torch_utils
+from utils import torch_utils, constant
 
 @dataclass
 class ModelStuff:
@@ -27,12 +24,12 @@ class ModelStuff:
 
 class GCNBiassedEnsembleEvaluator(object):
 
-    def __init__(self, model_stuff_list: List[ModelStuff]):
-
+    def __init__(self, model_stuff_list: List[ModelStuff], biassed_prediction):
+        self.id2label = dict([(v, k) for k, v in constant.LABEL_TO_ID.items()])
         self.models = OrderedDict()
+        self.biassed_prediction = biassed_prediction
 
         for model_stuff in model_stuff_list:
-
             self.models[model_stuff.representation] = []
 
             for model_file in model_stuff.files:
@@ -47,7 +44,6 @@ class GCNBiassedEnsembleEvaluator(object):
                 self.models[model_stuff.representation].append(model)
 
 
-
     def get_checkpoint(self, filename):
         try:
             checkpoint = torch.load(filename)
@@ -56,14 +52,11 @@ class GCNBiassedEnsembleEvaluator(object):
             print("Cannot load model from {}".format(filename))
             exit()
 
-
-
     def predict(self, batch_tuple, cuda, unsort=True):
-        predictions = OrderedDict()
-
+        logits = OrderedDict()
+        model_predictions = OrderedDict()
         for representation, batch in zip(self.models.keys(), batch_tuple):
             anchor_input = None
-            total_logits = None
 
             for model in self.models[representation]:
                 input, labels = Input.unpack_batch(batch, cuda)
@@ -75,20 +68,36 @@ class GCNBiassedEnsembleEvaluator(object):
                     assert input.orig_idx == anchor_input.orig_idx
 
                 model.eval()
-                logits, _ = model(input)
+                model_output, _ = model(input)
 
-                if total_logits is None:
-                    total_logits = logits
+                if representation not in logits:
+                    logits[representation] = model_output
                 else:
-                    total_logits += logits
+                    logits[representation] += model_output
 
-            predictions[representation] = np.argmax(total_logits.data.cpu().numpy(), axis=1).tolist()
+        overall_logits = None
+        for representation in self.models.keys():
+            if overall_logits is None:
+                overall_logits = logits[representation]
+            else:
+                overall_logits += logits[representation]
+        overall_predictions =  np.argmax(overall_logits.data.cpu().numpy(), axis=1).tolist()
 
+        for representation in self.models.keys():
+            model_predictions[representation] = np.argmax(logits[representation].data.cpu().numpy(), axis=1).tolist()
+
+        for index in range(batch_tuple[0].batch_size):
+            individial_model_prediction = []
+            for representation in self.models.keys():
+                individial_model_prediction.append(model_predictions[representation][index])
+
+            overall_predictions[index] = self.biassed_prediction(individial_model_prediction, overall_predictions[index])
 
         if unsort:
-            _, predictions['ud'], ids = [list(t) for t in zip(*sorted(zip(anchor_input.orig_idx, predictions['ud'], anchor_input.id)))]
+            _, overall_predictions, ids = [list(t) for t in zip(*sorted(zip(anchor_input.orig_idx, overall_predictions, anchor_input.id)))]
 
-        return predictions['ud'], ids
+
+        return overall_predictions, ids
 
 
 

@@ -2,11 +2,12 @@
 Run evaluation using biassed ensemble(specifically UD and UCCA) with saved models.
 """
 
+from collections import OrderedDict
 import random
 import argparse
 import csv
 import json
-from tqdm import tqdm
+import numpy as np
 import torch
 
 from data.loader import DataLoader
@@ -43,12 +44,34 @@ random.seed(args.seed)
 if cuda:
     torch.cuda.manual_seed(args.seed)
 
+label2id = constant.LABEL_TO_ID
+id2label = dict([(v,k) for k,v in label2id.items()])
 
 ud = ModelStuff('ud', args.ud_model_dirs.split(','), [], None)
 ucca = ModelStuff('ucca', args.ucca_model_dirs.split(','), [], None)
 
-for model_stuff in [ud, ucca]:
+def biassed_prediction(model_predictions, overall_prediction):
 
+    ud_prediction = model_predictions[0]
+    ucca_prediction = model_predictions[1]
+
+    if ucca_prediction != ud_prediction:
+
+        if id2label[ucca_prediction] in ['per:country_of_birth',
+                                              'per:city_of_birth',
+                                              'per:city_of_death',
+                                              'per:date_of_death',
+                                              'org:country_of_headquarters',
+                                              'per:stateorprovinces_of_residence',
+                                              'per:stateorprovince_of_death',
+                                              'per:countries_of_residence']:
+            overall_prediction = ucca_prediction
+
+    return overall_prediction
+
+
+models_stuff = [ud, ucca]
+for model_stuff in models_stuff:
 
     for model_dir in model_stuff.dirs:
 
@@ -90,20 +113,22 @@ for model_stuff in [ud, ucca]:
                 exit(1)
 
 
+evaluator = GCNBiassedEnsembleEvaluator(models_stuff, biassed_prediction)
 
-evaluator = GCNBiassedEnsembleEvaluator([ud, ucca])
-
-label2id = constant.LABEL_TO_ID
-id2label = dict([(v,k) for k,v in label2id.items()])
 predictions = []
 all_ids = []
-
-for i, batch_tuple in enumerate(zip(ud.data, ucca.data)):
+for i, batch_tuple in enumerate(zip(*[model_stuff.data for model_stuff in models_stuff])):
     preds, ids = evaluator.predict(batch_tuple, cuda)
-    predictions += preds
     all_ids += ids
 
+    predictions += preds
+
 predictions = [id2label[p] for p in predictions]
+
+
+
+
+
 p, r, f1 = scorer.score(ud.data.gold(), predictions, verbose=True)
 print("{} set evaluate result: {:.2f}\t{:.2f}\t{:.2f}".format(args.dataset,p,r,f1))
 
