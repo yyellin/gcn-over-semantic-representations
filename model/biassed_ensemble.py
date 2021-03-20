@@ -24,7 +24,7 @@ class ModelStuff:
 
 class GCNBiassedEnsembleEvaluator(object):
 
-    def __init__(self, model_stuff_list: List[ModelStuff], biassed_prediction):
+    def __init__(self, model_stuff_list: List[ModelStuff], biassed_prediction=None):
         self.id2label = dict([(v, k) for k, v in constant.LABEL_TO_ID.items()])
         self.models = OrderedDict()
         self.biassed_prediction = biassed_prediction
