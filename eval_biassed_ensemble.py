@@ -23,8 +23,8 @@ parser.add_argument('ucca_model_dirs', help='List of UCCA model directories  sep
 parser.add_argument('--model_file', type=str, default='best_model.pt', help='Name of the model 1 file.')
 parser.add_argument('--dataset', type=str, default='test', help="Evaluate on dev or test.")
 
+parser.add_argument('--strategy', choices=('nothing', 'ucca', 'ucca_and_ud'), default='ucca')
 
-parser.add_argument('--no_bias', action='store_true', help='Load pretrained model.')
 
 parser.add_argument('--seed', type=int, default=1234)
 parser.add_argument('--cpu', action='store_true')
@@ -53,7 +53,8 @@ id2label = dict([(v,k) for k,v in label2id.items()])
 ud = ModelStuff('ud', args.ud_model_dirs.split(','), [], None)
 ucca = ModelStuff('ucca', args.ucca_model_dirs.split(','), [], None)
 
-def biassed_prediction(model_predictions, overall_prediction):
+
+def biassed_prediction_ucca(model_predictions, overall_prediction):
 
     ud_prediction = model_predictions[0]
     ucca_prediction = model_predictions[1]
@@ -71,6 +72,40 @@ def biassed_prediction(model_predictions, overall_prediction):
             overall_prediction = ucca_prediction
 
     return overall_prediction
+
+def biassed_prediction_ucca_and_ud(model_predictions, overall_prediction):
+
+    ud_prediction = model_predictions[0]
+    ucca_prediction = model_predictions[1]
+
+    if ucca_prediction != ud_prediction:
+
+        if id2label[ucca_prediction] in ['per:country_of_birth',
+                                              'per:city_of_birth',
+                                              'per:city_of_death',
+                                              'per:date_of_death',
+                                              'org:country_of_headquarters',
+                                              'per:stateorprovinces_of_residence',
+                                              'per:stateorprovince_of_death',
+                                              'per:countries_of_residence']:
+            overall_prediction = ucca_prediction
+
+        elif id2label[ud_prediction] in ['per:parents',
+                                            'per:siblings',
+                                            'org:parents',
+                                            'per:children',
+                                            'per:other_family']:
+            overall_prediction = ud_prediction
+
+
+    return overall_prediction
+
+
+biassed_prediction = None
+if args.strategy == 'ucca':
+    biassed_prediction = biassed_prediction_ucca
+elif args.strategy == 'ucca_and_ud':
+    biassed_prediction = biassed_prediction_ucca_and_ud()
 
 
 models_stuff = [ud, ucca]
@@ -115,10 +150,7 @@ for model_stuff in models_stuff:
                 print('models use different batch size. exiting.')
                 exit(1)
 
-if not args.no_bias:
-    evaluator = GCNBiassedEnsembleEvaluator(models_stuff, biassed_prediction)
-else:
-    evaluator = GCNBiassedEnsembleEvaluator(models_stuff)
+evaluator = GCNBiassedEnsembleEvaluator(models_stuff, biassed_prediction)
 
 predictions = []
 all_ids = []
