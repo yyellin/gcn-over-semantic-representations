@@ -23,6 +23,9 @@ parser.add_argument('ucca_model_dirs', help='List of UCCA model directories  sep
 parser.add_argument('--model_file', type=str, default='best_model.pt', help='Name of the model 1 file.')
 parser.add_argument('--dataset', type=str, default='test', help="Evaluate on dev or test.")
 
+
+parser.add_argument('--no_bias', action='store_true', help='Load pretrained model.')
+
 parser.add_argument('--seed', type=int, default=1234)
 parser.add_argument('--cpu', action='store_true')
 
@@ -75,12 +78,12 @@ for model_stuff in models_stuff:
 
     for model_dir in model_stuff.dirs:
 
-        opt = None
         model_file = model_dir + '/' + args.model_file
         model_stuff.files.append(model_file)
 
+        opt = torch_utils.load_config(model_file)
+
         if model_stuff.data is None:
-            opt = torch_utils.load_config(model_file)
 
             data_file = opt['data_dir'] + '/{}.json'.format(args.dataset)
             with open(data_file) as infile:
@@ -112,8 +115,10 @@ for model_stuff in models_stuff:
                 print('models use different batch size. exiting.')
                 exit(1)
 
-
-evaluator = GCNBiassedEnsembleEvaluator(models_stuff, biassed_prediction)
+if not args.no_bias:
+    evaluator = GCNBiassedEnsembleEvaluator(models_stuff, biassed_prediction)
+else:
+    evaluator = GCNBiassedEnsembleEvaluator(models_stuff)
 
 predictions = []
 all_ids = []

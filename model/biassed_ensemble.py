@@ -91,7 +91,8 @@ class GCNBiassedEnsembleEvaluator(object):
             for representation in self.models.keys():
                 individial_model_prediction.append(model_predictions[representation][index])
 
-            overall_predictions[index] = self.biassed_prediction(individial_model_prediction, overall_predictions[index])
+            if not self.biassed_prediction is None:
+                overall_predictions[index] = self.biassed_prediction(individial_model_prediction, overall_predictions[index])
 
         if unsort:
             _, overall_predictions, ids = [list(t) for t in zip(*sorted(zip(anchor_input.orig_idx, overall_predictions, anchor_input.id)))]
