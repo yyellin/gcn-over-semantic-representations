@@ -17,7 +17,7 @@ def parse_arguments():
     args = parser.parse_args()
     return args
 
-def score(key, prediction, verbose=False):
+def score(key, predictions, verbose=False):
     correct_by_relation = Counter()
     guessed_by_relation = Counter()
     gold_by_relation    = Counter()
@@ -25,7 +25,12 @@ def score(key, prediction, verbose=False):
     # Loop over the data to compute a score
     for row in range(len(key)):
         gold = key[row]
-        guess = prediction[row]
+        guesses = [prediction[row] for prediction in predictions]
+
+        if gold in guesses:
+            guess = gold
+        else:
+            guess = guesses[0]
          
         if gold == NO_RELATION and guess == NO_RELATION:
             pass
