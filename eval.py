@@ -76,19 +76,25 @@ helper.print_config(opt)
 label2id = constant.LABEL_TO_ID
 id2label = dict([(v,k) for k,v in label2id.items()])
 
-predictions1 = []
-predictions2 = []
+all_predictions = []
 
 all_ids = []
 batch_iter = tqdm(batch)
 for i, b in enumerate(batch_iter):
-    preds1, preds2, _, ids = trainer.predict(b)
-    predictions1 += preds1
-    predictions2 += preds2
+    all_preds, ids = trainer.plural_predict(b)
+
+    for predictions, preds in zip(all_predictions, all_preds):
+        predictions += preds
+
     all_ids += ids
 
-predictions1 = [id2label[p] for p in predictions1]
-predictions2 = [id2label[p] for p in predictions2]
+
+all_prediction_labels = []
+
+for predictions in all_predictions:
+    prediction_labels =  [id2label[p] for p in predictions]
+    all_prediction_labels.append(prediction_labels)
+
 
 p, r, f1 = scorer.score(batch.gold(), [predictions1, predictions2], verbose=True)
 print("{} set evaluate result: {:.2f}\t{:.2f}\t{:.2f}".format(args.dataset,p,r,f1))
