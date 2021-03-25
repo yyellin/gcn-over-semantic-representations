@@ -24,14 +24,8 @@ parser.add_argument('--seed', type=int, default=1234)
 parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available())
 parser.add_argument('--cpu', action='store_true')
 
-parser.add_argument('--trace_file_for_misses', type=str, help='When provided misses will be outputed to file')
 
 args = parser.parse_args()
-
-if args.trace_file_for_misses != None:
-    if not helper.is_path_exists_or_creatable(args.trace_file_for_misses):
-        print(f'"{args.trace_file_for_misses}" is an invalid path. Please supply correct "trace_file_for_misses". Exiting.')
-        exit(1)
 
 
 torch.manual_seed(args.seed)
@@ -76,31 +70,32 @@ helper.print_config(opt)
 label2id = constant.LABEL_TO_ID
 id2label = dict([(v,k) for k,v in label2id.items()])
 
-predictions = []
-all_probs = []
+plurality = 2
+all_predictions = []
+for i in range(plurality):
+    all_predictions.append([])
+
+
 all_ids = []
 batch_iter = tqdm(batch)
 for i, b in enumerate(batch_iter):
-    preds, probs, _, ids = trainer.predict(b)
-    predictions += preds
-    all_probs += probs
+    all_preds, ids = trainer.plural_predict(b)
+
+    for predictions, preds in zip(all_predictions, all_preds):
+        predictions += preds
+
     all_ids += ids
 
-predictions = [id2label[p] for p in predictions]
-p, r, f1 = scorer.score(batch.gold(), predictions, verbose=True)
+
+all_prediction_labels = []
+
+for predictions in all_predictions:
+    prediction_labels =  [id2label[p] for p in predictions]
+    all_prediction_labels.append(prediction_labels)
+
+
+p, r, f1 = scorer.plural_score(batch.gold(), all_prediction_labels, verbose=True)
 print("{} set evaluate result: {:.2f}\t{:.2f}\t{:.2f}".format(args.dataset,p,r,f1))
-
-if args.trace_file_for_misses != None:
-    print(f'Preparing miss information and writing it to "{args.trace_file_for_misses}"')
-
-    with open(args.trace_file_for_misses, 'w', encoding='utf-8', newline='') as trace_file_for_misses:
-        csv_writer = csv.writer(trace_file_for_misses)
-        csv_writer.writerow( ['id', 'gold', 'predicted'])
-
-        for gold, prediction, id in zip(batch.gold(), predictions, all_ids):
-            if gold != prediction:
-                csv_writer.writerow( [id, gold, prediction])
-
 
 
 
