@@ -88,32 +88,6 @@ class GCNTrainer(Trainer):
 
         return loss_val
 
-    def predict(self, batch, first_how_many = 2):
-        input, labels = self.unpack_batch(batch, self.opt['cuda'] )
-
-        orig_idx = input.orig_idx
-        ids = input.id
-
-        # forward
-        self.model.eval()
-        logits, _ = self.model(input)
-
-        ordered_predictions = np.argsort(-logits.data.cpu().numpy(), axis=1)
-        predictions = []
-
-        for i in range(first_how_many):
-
-            prediction = ordered_predictions[:,i].tolist()
-            _, prediction = [list(t) for t in zip(*sorted(zip(orig_idx, prediction)))]
-
-            predictions.append( prediction )
-
-        #predictions1 = ordered_predictions[:,0].tolist()
-        #predictions2 = ordered_predictions[:,1].tolist()
-        _, ids = [list(t) for t in zip(*sorted(zip(orig_idx, ids)))]
-
-        return predictions, ids
-
 
     def predict(self, batch, unsort=True):
         input, labels = self.unpack_batch(batch, self.opt['cuda'] )
