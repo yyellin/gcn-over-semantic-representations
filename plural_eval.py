@@ -24,6 +24,7 @@ parser.add_argument('--seed', type=int, default=1234)
 parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available())
 parser.add_argument('--cpu', action='store_true')
 
+parser.add_argument('--plurality', type=int, default=2, help="Evaluate on dev or test.")
 
 args = parser.parse_args()
 
@@ -70,9 +71,8 @@ helper.print_config(opt)
 label2id = constant.LABEL_TO_ID
 id2label = dict([(v,k) for k,v in label2id.items()])
 
-plurality = 2
 all_predictions = []
-for i in range(plurality):
+for i in range(args.plurality):
     all_predictions.append([])
 
 
