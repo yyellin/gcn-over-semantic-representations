@@ -27,11 +27,6 @@ parser.add_argument('--cpu', action='store_true')
 
 args = parser.parse_args()
 
-if args.trace_file_for_misses != None:
-    if not helper.is_path_exists_or_creatable(args.trace_file_for_misses):
-        print(f'"{args.trace_file_for_misses}" is an invalid path. Please supply correct "trace_file_for_misses". Exiting.')
-        exit(1)
-
 
 torch.manual_seed(args.seed)
 random.seed(args.seed)
