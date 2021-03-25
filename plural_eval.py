@@ -24,7 +24,7 @@ parser.add_argument('--seed', type=int, default=1234)
 parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available())
 parser.add_argument('--cpu', action='store_true')
 
-parser.add_argument('--plurality', type=int, default=2, help="Evaluate on dev or test.")
+parser.add_argument('--plurality', type=int, default=3, help="Evaluate on dev or test.")
 
 args = parser.parse_args()
 
@@ -79,7 +79,7 @@ for i in range(args.plurality):
 all_ids = []
 batch_iter = tqdm(batch)
 for i, b in enumerate(batch_iter):
-    all_preds, ids = trainer.plural_predict(b)
+    all_preds, ids = trainer.plural_predict(b, args.plurality)
 
     for predictions, preds in zip(all_predictions, all_preds):
         predictions += preds
