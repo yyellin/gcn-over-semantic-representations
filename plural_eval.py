@@ -25,6 +25,7 @@ parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available())
 parser.add_argument('--cpu', action='store_true')
 
 parser.add_argument('--plurality', type=int, default=3, help="Evaluate on dev or test.")
+parser.add_argument('--trace_file', type=str, help='When provided predictions and gold will be outputed in kind')
 
 args = parser.parse_args()
 
@@ -63,8 +64,8 @@ print("Loading data from {} with batch size {}...".format(data_file, opt['batch_
 with open(data_file) as infile:
     data_input = json.load(infile)
 
-batch = DataLoader(data_input, opt['batch_size'], opt, vocab, evaluation=True, ucca_embedding=ucca_embedding)
-print("{} batches created for test".format(len(batch.data)))
+loaded = DataLoader(data_input, opt['batch_size'], opt, vocab, evaluation=True, ucca_embedding=ucca_embedding)
+print("{} batches created for test".format(len(loaded.data)))
 
 
 helper.print_config(opt)
@@ -77,15 +78,13 @@ for i in range(args.plurality):
 
 
 all_ids = []
-batch_iter = tqdm(batch)
-for i, b in enumerate(batch_iter):
-    all_preds, ids = trainer.plural_predict(b, args.plurality)
+for i, batch in enumerate(loaded):
+    all_preds, ids = trainer.plural_predict(batch, args.plurality)
 
     for predictions, preds in zip(all_predictions, all_preds):
         predictions += preds
 
     all_ids += ids
-
 
 all_prediction_labels = []
 
@@ -94,9 +93,30 @@ for predictions in all_predictions:
     all_prediction_labels.append(prediction_labels)
 
 
-p, r, f1 = scorer.plural_score(batch.gold(), all_prediction_labels, verbose=True)
+p, r, f1 = scorer.plural_score(loaded.gold(), all_prediction_labels, verbose=True)
 print("{} set evaluate result: {:.2f}\t{:.2f}\t{:.2f}".format(args.dataset,p,r,f1))
 
+
+if args.trace_file != None:
+    print(f'Creating trace file "{args.trace_file}"')
+
+    with open(args.trace_file, 'w', encoding='utf-8', newline='') as trace_file:
+        csv_writer = csv.writer(trace_file)
+
+        title = ['id', 'gold']
+        title += ['prediction{0}'.format(i+1) for i in range(len(all_prediction_labels)) ]
+
+
+        csv_writer.writerow(title)
+
+
+        for i, (id, gold) in enumerate(zip(all_ids, loaded.gold())):
+
+            row = [id, gold]
+            for j in range(len(all_prediction_labels)):
+                row.append(all_prediction_labels[j][i])
+
+            csv_writer.writerow( row)
 
 
 print("Evaluation ended.")
