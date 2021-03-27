@@ -76,7 +76,7 @@ predictions = []
 all_probs = []
 all_ids = []
 for i, b in enumerate(loaded):
-    preds, probs, _, ids = trainer.predict(b)
+    preds, probs, _, ids = trainer.predict_with_confidence(b)
     predictions += preds
     all_probs += probs
     all_ids += ids

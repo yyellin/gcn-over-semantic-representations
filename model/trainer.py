@@ -107,6 +107,26 @@ class GCNTrainer(Trainer):
         return predictions, probs, loss.item(), ids
 
 
+    def predict_with_confidence(self, batch, unsort=True):
+        input, labels = self.unpack_batch(batch, self.opt['cuda'] )
+
+        orig_idx = input.orig_idx
+        ids = input.id
+
+        # forward
+        self.model.eval()
+        logits, _ = self.model(input)
+        loss = self.criterion(logits, labels)
+
+        probs = np.max(F.softmax(logits, 1).data.cpu().numpy(), axis=1).tolist()
+        predictions = np.argmax(logits.data.cpu().numpy(), axis=1).tolist()
+
+        if unsort:
+            _, predictions, probs, ids = [list(t) for t in zip(*sorted(zip(orig_idx, predictions, probs, ids)))]
+
+        return predictions, probs, loss.item(), ids
+
+
     def plural_predict(self, batch, plurality = 2):
         input, labels = self.unpack_batch(batch, self.opt['cuda'] )
 
