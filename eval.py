@@ -45,6 +45,13 @@ elif args.cuda:
 model_file = args.model_dir + '/' + args.model
 print("Loading model from {}".format(model_file))
 opt = torch_utils.load_config(model_file)
+
+if not opt['binary_classification'] is None:
+    for label in constant.LABEL_TO_ID.keys():
+        if label !=  opt['binary_classification']:
+            constant.LABEL_TO_ID[label] = 0
+
+
 trainer = GCNTrainer(opt)
 trainer.load(model_file)
 

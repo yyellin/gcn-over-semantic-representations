@@ -48,7 +48,11 @@ class DataLoader(object):
             indices = list(range(len(data)))
             random.shuffle(indices)
             data = [data[i] for i in indices]
+
+        # The self.id2label[0] = 'no_relation' assignment is necessary for when --binary_classification is active
         self.id2label = dict([(v,k) for k,v in self.label2id.items()])
+        self.id2label[0] = 'no_relation'
+
         self.labels = [self.id2label[d[-2]] for d in data]
         self.num_examples = len(data)
 

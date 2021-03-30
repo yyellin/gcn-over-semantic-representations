@@ -99,9 +99,15 @@ parser.add_argument('--ucca_heads', action='store_true', help='UCCA single heads
 parser.add_argument('--ucca_multi_heads', action='store_true', help='UCCA multi heads')
 parser.add_argument('--sequential_heads', action='store_true', help='sequential heads')
 
-
+parser.add_argument('--binary_classification', type=str, default=None, help='all relation except that provided to be considered as negtive')
 
 args = parser.parse_args()
+
+if not args.binary_classification is None:
+    for label in constant.LABEL_TO_ID.keys():
+        if label != args.binary_classification:
+            constant.LABEL_TO_ID[label] = 0
+
 
 torch.manual_seed(args.seed)
 np.random.seed(args.seed)
