@@ -81,7 +81,11 @@ print("{} batches created for test".format(len(batch.data)))
 
 helper.print_config(opt)
 label2id = constant.LABEL_TO_ID
+
+# The id2label[0] = 'no_relation' assignment is necessary for when --binary_classification is active
 id2label = dict([(v,k) for k,v in label2id.items()])
+id2label[0] = 'no_relation'
+
 
 predictions = []
 all_probs = []

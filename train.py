@@ -180,7 +180,10 @@ else:
     trainer = GCNTrainer(model_opt)
     trainer.load(model_file)   
 
+# The id2label[0] = 'no_relation' assignment is necessary for when --binary_classification is active
 id2label = dict([(v,k) for k,v in label2id.items()])
+id2label[0] = 'no_relation'
+
 dev_score_history = []
 current_lr = opt['lr']
 
