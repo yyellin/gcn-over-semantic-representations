@@ -24,14 +24,10 @@ parser.add_argument('--seed', type=int, default=1234)
 parser.add_argument('--cuda', type=bool, default=torch.cuda.is_available())
 parser.add_argument('--cpu', action='store_true')
 
-parser.add_argument('--trace_file_for_misses', type=str, help='When provided misses will be outputed to file')
+parser.add_argument('--plurality', type=int, default=3, help="Evaluate on dev or test.")
+parser.add_argument('--trace_file', type=str, help='When provided predictions and gold will be outputed in kind')
 
 args = parser.parse_args()
-
-if args.trace_file_for_misses != None:
-    if not helper.is_path_exists_or_creatable(args.trace_file_for_misses):
-        print(f'"{args.trace_file_for_misses}" is an invalid path. Please supply correct "trace_file_for_misses". Exiting.')
-        exit(1)
 
 
 torch.manual_seed(args.seed)
@@ -45,13 +41,6 @@ elif args.cuda:
 model_file = args.model_dir + '/' + args.model
 print("Loading model from {}".format(model_file))
 opt = torch_utils.load_config(model_file)
-
-if not opt['binary_classification'] is None:
-    for label in constant.LABEL_TO_ID.keys():
-        if label !=  opt['binary_classification']:
-            constant.LABEL_TO_ID[label] = 0
-
-
 trainer = GCNTrainer(opt)
 trainer.load(model_file)
 
@@ -75,44 +64,59 @@ print("Loading data from {} with batch size {}...".format(data_file, opt['batch_
 with open(data_file) as infile:
     data_input = json.load(infile)
 
-batch = DataLoader(data_input, opt['batch_size'], opt, vocab, evaluation=True, ucca_embedding=ucca_embedding)
-print("{} batches created for test".format(len(batch.data)))
+loaded = DataLoader(data_input, opt['batch_size'], opt, vocab, evaluation=True, ucca_embedding=ucca_embedding)
+print("{} batches created for test".format(len(loaded.data)))
 
 
 helper.print_config(opt)
 label2id = constant.LABEL_TO_ID
-
-# The id2label[0] = 'no_relation' assignment is necessary for when --binary_classification is active
 id2label = dict([(v,k) for k,v in label2id.items()])
-id2label[0] = 'no_relation'
+
+all_predictions = []
+for i in range(args.plurality):
+    all_predictions.append([])
 
 
-predictions = []
-all_probs = []
 all_ids = []
-batch_iter = tqdm(batch)
-for i, b in enumerate(batch_iter):
-    preds, probs, _, ids = trainer.predict(b)
-    predictions += preds
-    all_probs += probs
+for i, batch in enumerate(loaded):
+    all_preds, ids = trainer.plural_predict(batch, args.plurality)
+
+    for predictions, preds in zip(all_predictions, all_preds):
+        predictions += preds
+
     all_ids += ids
 
-predictions = [id2label[p] for p in predictions]
-p, r, f1 = scorer.score(batch.gold(), predictions, verbose=True)
+all_prediction_labels = []
+
+for predictions in all_predictions:
+    prediction_labels =  [id2label[p] for p in predictions]
+    all_prediction_labels.append(prediction_labels)
+
+
+p, r, f1 = scorer.plural_score(loaded.gold(), all_prediction_labels, verbose=True)
 print("{} set evaluate result: {:.2f}\t{:.2f}\t{:.2f}".format(args.dataset,p,r,f1))
 
-if args.trace_file_for_misses != None:
-    print(f'Preparing miss information and writing it to "{args.trace_file_for_misses}"')
 
-    with open(args.trace_file_for_misses, 'w', encoding='utf-8', newline='') as trace_file_for_misses:
-        csv_writer = csv.writer(trace_file_for_misses)
-        csv_writer.writerow( ['id', 'gold', 'predicted'])
+if args.trace_file != None:
+    print(f'Creating trace file "{args.trace_file}"')
 
-        for gold, prediction, id in zip(batch.gold(), predictions, all_ids):
-            if gold != prediction:
-                csv_writer.writerow( [id, gold, prediction])
+    with open(args.trace_file, 'w', encoding='utf-8', newline='') as trace_file:
+        csv_writer = csv.writer(trace_file)
+
+        title = ['id', 'gold']
+        title += ['prediction{0}'.format(i+1) for i in range(len(all_prediction_labels)) ]
 
 
+        csv_writer.writerow(title)
+
+
+        for i, (id, gold) in enumerate(zip(all_ids, loaded.gold())):
+
+            row = [id, gold]
+            for j in range(len(all_prediction_labels)):
+                row.append(all_prediction_labels[j][i])
+
+            csv_writer.writerow( row)
 
 
 print("Evaluation ended.")

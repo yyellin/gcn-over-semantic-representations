@@ -7,9 +7,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 from torch.autograd import Variable
 import numpy as np
+import itertools
+import networkx
 
-from model.tree import Tree, head_to_tree, tree_to_adj
-from utils import constant, torch_utils
+from model.tree import Tree, head_to_tree, tree_to_adj, fold_multiple_root_words
+from utils import constant
+from utils.torch_utils import  keep_partial_grad, get_long_tensor, set_cuda
 from utils.ucca_embedding import UccaEmbedding
 
 
@@ -39,11 +42,12 @@ class GCNRelationModel(nn.Module):
 
         # create embedding layers
         self.emb = nn.Embedding(opt['vocab_size'], opt['emb_dim'], padding_idx=constant.PAD_ID)
-        self.pos_emb = nn.Embedding(len(constant.POS_TO_ID), opt['pos_dim']) if opt['pos_dim'] > 0 else None
-        self.ner_emb = nn.Embedding(len(constant.NER_TO_ID), opt['ner_dim']) if opt['ner_dim'] > 0 else None
+        self.pos_emb = nn.Embedding(len(constant.SPACY_POS_TO_ID), opt['pos_dim']) if opt['pos_dim'] > 0 else None
+        self.ner_emb = nn.Embedding(len(constant.SPACY_NER_TO_ID), opt['ner_dim']) if opt['ner_dim'] > 0 else None
         self.ucca_emb = nn.Embedding(opt['ucca_embedding_vocab_size'], opt['ucca_embedding_dim']) if opt['ucca_embedding_dim'] > 0 else None
+        self.coref_emb = nn.Embedding(len(constant.ALL_NER_TYPES)*3, opt['coref_dim']) if opt['coref_dim'] > 0 else None
 
-        embeddings = (self.emb, self.pos_emb, self.ner_emb, self.ucca_emb)
+        embeddings = (self.emb, self.pos_emb, self.ner_emb, self.ucca_emb, self.coref_emb)
         self.init_embeddings()
 
         # gcn layer
@@ -74,31 +78,134 @@ class GCNRelationModel(nn.Module):
         elif self.opt['topn'] < self.opt['vocab_size']:
             print("Finetune top {} word embeddings.".format(self.opt['topn']))
             self.emb.weight.register_hook(lambda x: \
-                    torch_utils.keep_partial_grad(x, self.opt['topn']))
+                    keep_partial_grad(x, self.opt['topn']))
         else:
             print("Finetune all embeddings.")
 
-
-
     def forward(self, inputs):
-        words, masks, pos, ner, deprel, head, subj_pos, obj_pos, subj_type, obj_type, path_mask  = inputs # unpack
-        l = (masks.data.cpu().numpy() == 0).astype(np.int64).sum(1)
-        maxlen = max(l)
+        maxlen = max(inputs.len)
 
-        def inputs_to_tree_reps(head, words, l, prune, subj_pos, obj_pos):
-            head, words, subj_pos, obj_pos = head.cpu().numpy(), words.cpu().numpy(), subj_pos.cpu().numpy(), obj_pos.cpu().numpy()
-            trees = [head_to_tree(head[i], words[i], l[i], prune, subj_pos[i], obj_pos[i]) for i in range(len(l))]
+        def trees_to_adj(heads, l, prune, subj_pos, obj_pos):
+            trees = [head_to_tree(fold_multiple_root_words(heads[i]), prune, subj_pos[i], obj_pos[i]) for i in range(len(l))]
+
             adj = [tree_to_adj(maxlen, tree, directed=False, self_loop=False).reshape(1, maxlen, maxlen) for tree in trees]
             adj = np.concatenate(adj, axis=0)
             adj = torch.from_numpy(adj)
+
             return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
 
-        adj = inputs_to_tree_reps(head.data, words.data, l, self.opt['prune_k'], subj_pos.data, obj_pos.data)
+        def dags_to_adj_from_dist_to_path(multi_heads, distances, l, prune):
+            batch_len = len(multi_heads)
+
+            adj_matrices = []
+            for sent_idx in range(batch_len):
+                sent_len = l[sent_idx]
+                multi_head = multi_heads[sent_idx]
+                distance = distances[sent_idx]
+                adj_matrix = np.zeros((maxlen, maxlen), dtype=np.float32)
+
+                for i in range(sent_len):
+                    if distance[i] <= prune:
+                        for head in multi_head[i]:
+                            if head > 0 and distance[head-1] <= prune:
+                                adj_matrix[head-1,i] = 1
+
+                adj_matrix = adj_matrix + adj_matrix.T
+
+                adj_matrices.append(adj_matrix.reshape(1, maxlen, maxlen))
+
+            adj = np.concatenate(adj_matrices, axis=0)
+            adj = torch.from_numpy(adj)
+            return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
+
+        def dags_to_adj(multi_heads, l, prune, subj_pos, obj_pos):
+            batch_len = len(multi_heads)
+
+            adj_matrices = []
+            for sent_idx in range(batch_len):
+                sent_len = l[sent_idx]
+                adj_matrix = np.zeros((maxlen, maxlen), dtype=np.float32)
+                subj = [token_id for token_id in range(sent_len) if subj_pos[sent_idx][token_id] == 0]
+                obj= [token_id for token_id in range(sent_len) if obj_pos[sent_idx][token_id] == 0]
+                edges = {(head_id-1, token_id):True for token_id in range(sent_len) for head_id in multi_heads[sent_idx][token_id] }
+
+                extended_edges = edges.copy()
+                for edge in itertools.combinations(subj, 2):
+                    extended_edges[edge] = True
+                for edge in itertools.combinations(obj, 2):
+                    extended_edges[edge] = True
+
+                graph = networkx.Graph(list(extended_edges.keys()))
+                try:
+                    on_path = networkx.shortest_path(graph, source=subj[0], target=obj[0])
+                except networkx.NetworkXNoPath:
+                    #adj_matrix = np.ones((maxlen, maxlen), dtype=np.float32)
+                    print('shit')
+                    adj_matrices.append(adj_matrix.reshape(1, maxlen, maxlen))
+                    continue
+
+                all_shortest_paths_lengths = {start: targets for start, targets in networkx.shortest_path_length(graph)}
+
+                token_distances = []
+                for token_id in range(sent_len):
+                    distance = 0
+                    if token_id not in on_path:
+                        distances_to_path = {target: distance_to_target
+                                             for target, distance_to_target in all_shortest_paths_lengths[token_id].items()
+                                             if target in on_path}
+                        distance = min(distances_to_path.values(), default=constant.INFINITY_NUMBER)
+
+                    token_distances.append(distance)
+
+                dgraph = networkx.DiGraph(list(edges.keys()))
+                for i in dgraph.nodes():
+                    if i >= 0 and token_distances[i] <= prune:
+                        for j in dgraph.successors(i):
+                            if j >= 0 and token_distances[j] <= prune:
+                                adj_matrix[i, j] = 1
+                adj_matrix = adj_matrix + adj_matrix.T
+
+                adj_matrices.append(adj_matrix.reshape(1, maxlen, maxlen))
+
+            adj = np.concatenate(adj_matrices, axis=0)
+            adj = torch.from_numpy(adj)
+            return Variable(adj.cuda()) if self.opt['cuda'] else Variable(adj)
+
+        ucca_head_adj = None
+        ucca_multi_head_adj = None
+        sequential_adj = None
+        ud_adj = None
+
+        if self.opt['ucca_heads']:
+            ucca_head_adj = trees_to_adj(inputs.ucca_head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
+
+        if self.opt['ucca_multi_heads']:
+            ucca_multi_head_adj = dags_to_adj_from_dist_to_path(inputs.ucca_multi_head, inputs.ucca_dist_from_mh_path, inputs.len, self.opt['prune_k'])
+
+        if self.opt['sequential_heads']:
+            sequential_heads = [ [i for i in range(len) ] for len in inputs.len]
+            sequential_adj = trees_to_adj(sequential_heads, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
+
+        if self.opt['ud_heads'] or (ucca_head_adj is None and ucca_multi_head_adj is None and sequential_adj is None):
+            ud_adj = trees_to_adj(inputs.head, inputs.len, self.opt['prune_k'], inputs.subj_p, inputs.obj_p)
+
+        adj = None
+        for one_adj in [ucca_head_adj, ucca_multi_head_adj, sequential_adj, ud_adj]:
+            if one_adj is None:
+                continue
+
+            if adj is None:
+                adj = one_adj
+                continue
+
+            adj = (adj + one_adj).eq(0).eq(0).float()
+
+
         h, pool_mask = self.gcn(adj, inputs)
         
         # pooling
-        subj_mask = subj_pos.eq(0).eq(0).unsqueeze(2) # invert mask
-        obj_mask = obj_pos.eq(0).eq(0).unsqueeze(2) # invert mask
+        subj_mask = set_cuda(get_long_tensor(inputs.subj_p, inputs.batch_size ), self.opt['cuda']).eq(0).eq(0).unsqueeze(2) # invert mask
+        obj_mask = set_cuda(get_long_tensor(inputs.obj_p, inputs.batch_size ), self.opt['cuda']).eq(0).eq(0).unsqueeze(2) # invert mask
 
         if self.opt['fix_subj_obj_mask_bug']:
             subj_mask = ~(~subj_mask & ~pool_mask)
@@ -111,7 +218,9 @@ class GCNRelationModel(nn.Module):
         obj_out = pool(h, obj_mask, type=pool_type)
         outputs = torch.cat([h_out, subj_out, obj_out], dim=1)
         outputs = self.out_mlp(outputs)
+
         return outputs, h_out
+
 
 class GCN(nn.Module):
     """ A GCN/Contextualized GCN module operated on dependency graphs. """
@@ -121,9 +230,9 @@ class GCN(nn.Module):
         self.layers = num_layers
         self.use_cuda = opt['cuda']
         self.mem_dim = mem_dim
-        self.in_dim = opt['emb_dim'] + opt['pos_dim'] + opt['ner_dim'] + opt['ucca_embedding_dim']
+        self.in_dim = opt['emb_dim'] + opt['pos_dim'] + opt['ner_dim'] + opt['ucca_embedding_dim'] + opt['coref_dim']
 
-        self.emb, self.pos_emb, self.ner_emb, self.ucca_emb = embeddings
+        self.emb, self.pos_emb, self.ner_emb, self.ucca_emb, self.coref_emb = embeddings
 
         # rnn layer
         if self.opt.get('rnn', False):
@@ -158,15 +267,17 @@ class GCN(nn.Module):
         return rnn_outputs
 
     def forward(self, adj, inputs):
-        words, masks, pos, ner, deprel, head, subj_pos, obj_pos, subj_type, obj_type, ucca_encoding = inputs # unpack
-        word_embs = self.emb(words)
+
+        word_embs = self.emb(inputs.word)
         embs = [word_embs]
         if self.opt['pos_dim'] > 0:
-            embs += [self.pos_emb(pos)]
+            embs += [self.pos_emb(inputs.pos)]
         if self.opt['ner_dim'] > 0:
-            embs += [self.ner_emb(ner)]
+            embs += [self.ner_emb(inputs.ner)]
         if self.opt['ucca_embedding_dim'] > 0:
-            embs += [self.ucca_emb(ucca_encoding)]
+            embs += [self.ucca_emb(inputs.ucca_enc)]
+        if self.opt['coref_dim'] > 0:
+            embs += [self.coref_emb(inputs.coref)]
 
 
         embs = torch.cat(embs, dim=2)
@@ -174,7 +285,7 @@ class GCN(nn.Module):
 
         # rnn layer
         if self.opt.get('rnn', False):
-            gcn_inputs = self.rnn_drop(self.encode_with_rnn(embs, masks, words.size()[0]))
+            gcn_inputs = self.rnn_drop(self.encode_with_rnn(embs, inputs.mask, inputs.word.size()[0]))
         else:
             gcn_inputs = embs
         
