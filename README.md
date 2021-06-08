@@ -1,4 +1,4 @@
-Graph Convolution over Pruned Dependency Trees for Relation Extraction
+ Paths to Relation Extraction through Semantic Structure
 ==========
 
 This repo contains the *PyTorch* code for the paper [Paths to Relation Extraction through Semantic Structure](https://github.com/yyellin/gcn-over-semantic-representations/blob/master/Paths_to_Relation_Extraction_through_Semantic_Structures.pdf). 
