@@ -24,7 +24,7 @@ def check_files(files):
 def ensure_dir(d, verbose=True):
     if not os.path.exists(d):
         if verbose:
-            print("Directory {} do not exist; creating...".format(d))
+            print("Directory {} does not exist; creating...".format(d))
         os.makedirs(d)
 
 #https://stackoverflow.com/questions/9532499/check-whether-a-path-is-valid-in-python-without-creating-a-file-at-the-paths-ta

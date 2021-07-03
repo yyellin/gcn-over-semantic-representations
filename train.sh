@@ -17,7 +17,7 @@ EOF
 }
 
 die() {
-    printf '%s\n' 1 >&2
+    printf '%s\n' "$1" >&2
     exit 1
 }
 
@@ -50,7 +50,7 @@ while :; do
             break
             ;;
         -?*)
-            printf 'WARN: Unknown option (ignored): %s\n'
+            printf 'WARN: Unknown option (ignored): %s\n' "$1" >&2
             ;;
         *)               # Default case: No more options, so break out of the loop.
             break
@@ -76,6 +76,5 @@ EMBEDDING_OPTIONS=
 
 
 echo "using options:"
-echo --id $ID $ADJACENCY_OPTIONS $EMBEDDING_OPTIONS --seed 21213 --prune_k 1 --lr 0.3 --rnn_hidden 200 --num_epoch 100 --pooling max --mlp_layers 2 --poolin
-g_l2 0.003
+echo --id $ID $ADJACENCY_OPTIONS $EMBEDDING_OPTIONS --seed 21213 --prune_k 1 --lr 0.3 --rnn_hidden 200 --num_epoch 100 --pooling max --mlp_layers 2 --pooling_l2 0.003
 python train.py --id $ID $ADJACENCY_OPTIONS $EMBEDDING_OPTIONS --seed 21213 --prune_k 1 --lr 0.3 --rnn_hidden 200 --num_epoch 100 --pooling max --mlp_layers 2 --pooling_l2 0.003
