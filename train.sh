@@ -75,6 +75,6 @@ EMBEDDING_OPTIONS=
 ((EMB == 1)) && EMBEDDING_OPTIONS="--ucca_embedding_dim 80"
 
 
-printf 'using options: '
+printf 'run train.py with arguments: '
 printf '%s\n' "--id $ID $ADJACENCY_OPTIONS $EMBEDDING_OPTIONS --seed 21213 --prune_k 1 --lr 0.3 --rnn_hidden 200 --num_epoch 100 --pooling max --mlp_layers 2 --pooling_l2 0.003"
 python train.py --id $ID $ADJACENCY_OPTIONS $EMBEDDING_OPTIONS --seed 21213 --prune_k 1 --lr 0.3 --rnn_hidden 200 --num_epoch 100 --pooling max --mlp_layers 2 --pooling_l2 0.003
