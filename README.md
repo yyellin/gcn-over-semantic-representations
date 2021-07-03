@@ -1,49 +1,87 @@
- Paths to Relation Extraction through Semantic Structure
+Paths to Relation Extraction through Semantic Structure
 ==========
+This repo contains the code for the paper [Paths to Relation Extraction through Semantic Structure](https://github.com/yyellin/gcn-over-semantic-representations/blob/master/Paths_to_Relation_Extraction_through_Semantic_Structures.pdf), which explores whether semantic language representations, like UCCA, can be as helpful for the task of Relation Extraction (RE) as their syntactic representation counterparts (specifically, UD v1)
 
-This repo contains the *PyTorch* code for the paper [Paths to Relation Extraction through Semantic Structure](https://github.com/yyellin/gcn-over-semantic-representations/blob/master/Paths_to_Relation_Extraction_through_Semantic_Structures.pdf). 
+The exploration leverages the  work of Jhang, Chi and Manning in their paper [Graph Convolution over Pruned Dependency Trees Improves Relation Extraction](https://nlp.stanford.edu/pubs/zhang2018graph.pdf), and uses an extension of their initial code [GCN over pruned trees](https://github.com/qipeng/gcn-over-pruned-trees). Indeed this repo started out (and remains) a fork of theirs. 
+
+Jhang, Chi and Manning differentiate between a regular Graph Convolution Network (GCN) and a Contextualized Graph Convolution Network (C-GCN), which employs an RNN as an initial deep network block. My work focuses primarily on the C-GCN model, which I often also refer to as GCN, ignoring this distinction.
+
+Please refer to  [Paths to Relation Extraction through Semantic Structure](https://github.com/yyellin/gcn-over-semantic-representations/blob/master/Paths_to_Relation_Extraction_through_Semantic_Structures.pdf) for details about the model.
 
 
-## Requirements
+## Prerequisites
+The module have been tested on the following environment:
+1. Debian 10 (will work on other flavors of Linux) with at least 10G of RAM
+2. Python 3.7.3
+4. CUDA version 10.0 and 10.1
+5. RTX 2070 and RTX 2080
 
-- Python 3 (tested on 3.6.5)
-- PyTorch (tested on 0.4.0)
-- tqdm
-- unzip, wget (for downloading only)
 
-## Preparation
+## Environment Setup
+It is strongly recommended to run the modules in this project using a clean pthon virtual-env. Run the following commands to set this up:
 
-The code requires that you have access to the TACRED dataset (LDC license required). The TACRED dataset is currently scheduled for public release via LDC in December 2018. For possible early access to this data please contact us at `yuhao.zhang ~at~ stanford.edu`. Once you have the TACRED data, please put the JSON files under the directory `dataset/tacred`. For completeness, we only include sample data files from the TACRED dataset in this repo.
-
-First, download and unzip GloVe vectors from the Stanford NLP group website, with:
+```bash
+python3 -m venv /path/to/virtual/env
+source /path/to/virtual/env/bin/activate
+pip install --upgrade pip
+pip install wheel
 ```
-chmod +x download.sh; ./download.sh
+Clone the module from github and cd into the module directory:
+```bash
+git clone https://github.com/yyellin/gcn-over-semantic-representations.git
+cd gcn-over-semantic-representations
+```
+Now you are ready to install the module dependencies, by running:
+```bash
+pip install -r requirements.txt
 ```
 
-Then prepare vocabulary and initial word vectors with:
+## Data Preparation
+
+**Enhanced TACRED**
+The code requires an enhanced version of TACRED. Carefully follow the instructions on my  [TACRED Enrichment repo](https://github.com/yyellin/tacred-enrichment) to prepare this enhanced version. 
+Once you have the enhanced TACRED data, place the JSON files under the directory `dataset/tacred`.
+
+**GloVe vectors**
+Again from the `gcn-over-semantic-representations` directory,  download and unzip GloVe vectors from the Stanford NLP group website, with:
+```
+bash get_glove.sh
+```
+
+**Vocabulary, initial word vector and initial UCCA embedding vector preparation**
+Still from the `gcn-over-semantic-representations` directory,   prepare the  vocabulary and initial word vectors with:
 ```
 python prepare_vocab.py dataset/tacred dataset/vocab --glove_dir dataset/glove
 ```
-
 This will write vocabulary and word vectors as a numpy matrix into the dir `dataset/vocab`.
 
-## Training
-
-To train a graph convolutional neural network (GCN) model, run:
+Now  prepare the UCCA embedding  vectors bt running:
 ```
-bash train_gcn.sh 0
+python prepare_ucca_emb.py  dataset/tacred/ dataset/ucca-embedding
 ```
+This will write the UCCA embedding representation to the `dataset/ucca-embedding`.
 
-Model checkpoints and logs will be saved to `./saved_models/00`.
 
-To train a Contextualized GCN (C-GCN) model, run:
+## Training & Evaluation
+
+#### Training Options
+The internal train.py exposes a large number of parameters to control the training process. I provide a `train.sh` script that limits the number of exposed parameters to the following set:
+
+The following optional arguments specify which matrix adjacency regime to use. It is of course possible to use any combination of regimes.
+`--ud`: determines whether the UD based adjacency matrix will be used
+`--ucca`: determines whether the UCCA based adjacency matrix will be used
+`--seq`: determines whether we use the synthetic adjacency matrix , which represents a bi-lexical tree, where each token is the head of the following token.
+
+In addition to the matrix adjacency arguments, an additional argument stipulates whether UCCA embedding should be used:
+`emb`:  determines whether UCCA embedding representations will be used to augment the word embeddings.
+
+#### Running the training module
+
+Use the `train.sh` script with arguments of your choise as above, remembering to also include a positional argument to stipulate the model ID:
 ```
-bash train_cgcn.sh 1
+bash train.sh --ud --ucca --seq --emd 20
 ```
-
-Model checkpoints and logs will be saved to `./saved_models/01`.
-
-For details on the use of other parameters, such as the pruning distance k, please refer to `train.py`.
+Model checkpoints and logs will be saved to `./saved_models/20`.
 
 ## Evaluation
 
@@ -61,11 +99,7 @@ Reload a pretrained model and finetune it, run:
 python train.py --load --model_file saved_models/01/best_model.pt --optim sgd --lr 0.001
 ```
 
-## Related Repo
-
-The paper also includes comparisons to the position-aware attention LSTM (PA-LSTM) model for relation extraction. To reproduce the corresponding results, please refer to [this repo](https://github.com/yuhaozhang/tacred-relation).
-
 
 ## License
 
-All work contained in this package is licensed under the Apache License, Version 2.0. See the included LICENSE file.
+All work contained in this package is licensed under the Apache License, Version 2.0. 
