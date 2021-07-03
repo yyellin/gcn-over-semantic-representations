@@ -2,12 +2,13 @@
 
 show_help() {
 cat << EOF
-Usage: ${0##*/} [--UD] [--UCCA] [--SEQ] model-id
+Usage: ${0##*/} [--ud] [--ucca] [--seq] [--emb] model-id
 
  optional args:
-    --UD         use UD based adjacensy matrix
-    --UCCA       use UCCA based adjacensy matrix
-    --SEQ        use 'SEQ' based adjacensy matrix
+    --ud         use UD based adjacensy matrix
+    --ucca       use UCCA based adjacensy matrix
+    --seq        use 'SEQ' based adjacensy matrix
+    --emb        use UCCA terminal-to-root embeddings
 
  positional args:
     model-id     Model ID under which to save models
@@ -32,16 +33,16 @@ while :; do
         --help)
             show_help && exit
             ;;
-        --UD)
+        --ud)
             UD=1
             ;;
-        --UCCA)
+        --ucca)
             UCCA=1
             ;;
-        --SEQ)
+        --seq)
             SEQ=1
             ;;
-        --EMB)
+        --emb)
             EMB=1
             ;;
         --)              # End of all options.
@@ -74,4 +75,7 @@ EMBEDDING_OPTIONS=
 ((EMB == 1)) && EMBEDDING_OPTIONS="--ucca_embedding_dim 80"
 
 
+echo "using options:"
+echo --id $ID $ADJACENCY_OPTIONS $EMBEDDING_OPTIONS --seed 21213 --prune_k 1 --lr 0.3 --rnn_hidden 200 --num_epoch 100 --pooling max --mlp_layers 2 --poolin
+g_l2 0.003
 python train.py --id $ID $ADJACENCY_OPTIONS $EMBEDDING_OPTIONS --seed 21213 --prune_k 1 --lr 0.3 --rnn_hidden 200 --num_epoch 100 --pooling max --mlp_layers 2 --pooling_l2 0.003
