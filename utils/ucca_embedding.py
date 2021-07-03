@@ -71,6 +71,6 @@ class UccaEmbedding(object):
                 if not encodings_dict is None:
                     all_encodings += encodings
 
-        print("{} tokens from {} examples loaded from {}.".format(len(all_encodings), len(data), filename))
+        print("{} encodings from {} samples loaded from {}.".format(len(all_encodings), len(data), filename))
         return all_encodings
 

@@ -78,6 +78,8 @@ def load_tokens(filename):
         for d in data:
             ts = d['ucca_tokens']
 
+            # We must convert the subject/object start/end positions to the ucca based tokenization,
+            # using the 'tac_to_ucca' mapping table
             tac_to_ucca = { int(key):val for key, val in d['tac_to_ucca'].items() }
             ss = tac_to_ucca[d['subj_start']][0]
             se = tac_to_ucca[d['subj_end']][-1]
