@@ -1,5 +1,10 @@
 """
 GCN model for relation extraction.
+
+  Original Authors: Wenxuan Zhou, Yuhao Zhang
+  Enhanced By: Jonathan Yellin
+  Status: prototype
+
 """
 
 import torch

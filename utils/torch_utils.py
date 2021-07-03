@@ -1,5 +1,10 @@
 """
-Utility functions for torch.
+Utility functions for torch
+
+  Original Authors: Wenxuan Zhou, Yuhao Zhang
+  Enhanced By: Jonathan Yellin
+  Status: prototype
+
 """
 
 import torch

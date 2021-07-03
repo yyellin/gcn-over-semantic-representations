@@ -1,5 +1,9 @@
 """
 Prepare initial vectors for UCCA embeddings
+
+  Author: Jonathan Yellin
+  Status: prototype
+
 """
 import argparse
 from utils.ucca_embedding import UccaEmbedding

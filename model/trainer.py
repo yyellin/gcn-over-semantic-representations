@@ -1,5 +1,10 @@
 """
-A trainer class.
+The trainer class
+
+  Original Authors: Wenxuan Zhou, Yuhao Zhang
+  Enhanced By: Jonathan Yellin
+  Status: prototype
+
 """
 
 import torch

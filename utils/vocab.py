@@ -1,5 +1,10 @@
 """
-A class for basic vocab operations.
+A class for basic vocab operations
+
+  Original Authors: Wenxuan Zhou, Yuhao Zhang
+  Enhanced By: Jonathan Yellin
+  Status: prototype
+
 """
 
 from __future__ import print_function

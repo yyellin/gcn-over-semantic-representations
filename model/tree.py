@@ -1,5 +1,10 @@
 """
-Basic operations on trees.
+Operations on trees
+
+  Original Authors: Wenxuan Zhou, Yuhao Zhang
+  Enhanced By: Jonathan Yellin
+  Status: prototype
+
 """
 
 import numpy as np
@@ -67,6 +72,8 @@ def head_to_tree(head, prune, subj_pos, obj_pos):
                 nodes[h-1].add_child(nodes[i])
     else:
         # find dependency path
+
+
         subj_pos = [i for i in range(length) if subj_pos[i] == 0]
         obj_pos = [i for i in range(length) if obj_pos[i] == 0]
 

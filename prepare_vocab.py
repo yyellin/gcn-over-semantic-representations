@@ -1,5 +1,11 @@
 """
-Prepare vocabulary and initial word vectors.
+Prepare vocabulary and initial word vectors
+
+  Original Authors: Wenxuan Zhou, Yuhao Zhang
+  Enhanced By: Jonathan Yellin
+  Status: prototype
+
+
 """
 
 import json

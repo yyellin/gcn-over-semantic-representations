@@ -1,6 +1,12 @@
 """
-Define constants.
+Define constants
+
+  Original Authors: Wenxuan Zhou, Yuhao Zhang
+  Enhanced By: Jonathan Yellin
+  Status: prototype
+
 """
+
 EMB_INIT_RANGE = 1.0
 
 # vocab

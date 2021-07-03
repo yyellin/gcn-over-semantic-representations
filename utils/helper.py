@@ -1,5 +1,10 @@
 """
-Helper functions.
+Helper functions
+
+  Original Authors: Wenxuan Zhou, Yuhao Zhang
+  Enhanced By: Jonathan Yellin
+  Status: prototype
+
 """
 
 import os

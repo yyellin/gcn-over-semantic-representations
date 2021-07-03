@@ -1,3 +1,11 @@
+"""
+Class for UCCA Embedding operations
+
+  Authors: Jonathan Yellin
+  Status: prototype
+
+"""
+
 import itertools
 from collections import Counter
 import numpy as np

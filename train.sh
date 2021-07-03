@@ -69,12 +69,12 @@ ADJACENCY_OPTIONS=
 ((UD == 1)) && ADJACENCY_OPTIONS="--ud_heads"
 ((UCCA == 1)) && ADJACENCY_OPTIONS="$ADJACENCY_OPTIONS --ucca_multi_heads"
 ((SEQ == 1)) && ADJACENCY_OPTIONS="$ADJACENCY_OPTIONS --sequential_heads"
-[ -z "$ADJACENCY_OPTIONS" ] && ADJACENCY_OPTIONS="--ud_heads" && printf 'NO adjancy options provided, using UD\n'
+[ -z "$ADJACENCY_OPTIONS" ] && ADJACENCY_OPTIONS="--ud_heads" && printf "NO adjancy options provided, using UD\n"
 
 EMBEDDING_OPTIONS=
 ((EMB == 1)) && EMBEDDING_OPTIONS="--ucca_embedding_dim 80"
 
 
-echo "using options:"
-echo --id $ID $ADJACENCY_OPTIONS $EMBEDDING_OPTIONS --seed 21213 --prune_k 1 --lr 0.3 --rnn_hidden 200 --num_epoch 100 --pooling max --mlp_layers 2 --pooling_l2 0.003
+printf "using options:"
+printf "--id $ID $ADJACENCY_OPTIONS $EMBEDDING_OPTIONS --seed 21213 --prune_k 1 --lr 0.3 --rnn_hidden 200 --num_epoch 100 --pooling max --mlp_layers 2 --pooling_l2 0.003\n"
 python train.py --id $ID $ADJACENCY_OPTIONS $EMBEDDING_OPTIONS --seed 21213 --prune_k 1 --lr 0.3 --rnn_hidden 200 --num_epoch 100 --pooling max --mlp_layers 2 --pooling_l2 0.003

@@ -1,5 +1,10 @@
 """
-Train a model on TACRED.
+Train a model on enhanced TACRED
+
+  Original Authors: Wenxuan Zhou, Yuhao Zhang
+  Enhanced By: Jonathan Yellin
+  Status: prototype
+
 """
 
 import os

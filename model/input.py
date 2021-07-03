@@ -1,3 +1,11 @@
+"""
+Data structure for encapsulating TACRED input
+
+  Authors: Jonathan Yellin
+  Status: prototype
+
+"""
+
 from collections import namedtuple
 import torch
 from utils.torch_utils import  get_long_tensor, set_cuda, change_lr, get_optimizer

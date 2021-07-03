@@ -1,7 +1,10 @@
-#!/usr/bin/env python
-
 """
 Score the predictions with gold labels, using precision, recall and F1 metrics.
+
+  Original Authors: Wenxuan Zhou, Yuhao Zhang
+  Enhanced By: Jonathan Yellin
+  Status: prototype
+
 """
 
 import argparse

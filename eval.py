@@ -1,5 +1,10 @@
 """
-Run evaluation with saved models.
+Run evaluation with saved models
+
+  Original Authors: Wenxuan Zhou, Yuhao Zhang
+  Enhanced By: Jonathan Yellin
+  Status: prototype
+
 """
 import random
 import argparse
