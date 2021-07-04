@@ -4,7 +4,7 @@ This repo contains the code for the paper [Paths to Relation Extraction through 
 
 The exploration leverages the  work of Jhang, Chi and Manning in their paper [Graph Convolution over Pruned Dependency Trees Improves Relation Extraction](https://nlp.stanford.edu/pubs/zhang2018graph.pdf), and uses an extension of their initial code [GCN over pruned trees](https://github.com/qipeng/gcn-over-pruned-trees). Indeed this repo started out (and remains) a fork of theirs. 
 
-Jhang, Chi and Manning differentiate between a regular Graph Convolution Network (GCN) and a Contextualized Graph Convolution Network (C-GCN), which employs an RNN as an initial deep network block. My work focuses primarily on the C-GCN model, which I often also refer to as GCN, ignoring this distinction.
+Jhang, Chi and Manning differentiate between a regular Graph Convolution Network (GCN) and a Contextualized Graph Convolution Network (C-GCN) that bbbbbemploys an RNN as an initial deep network block. My work focuses primarily on the C-GCN model, which I often also refer to as GCN, ignoring this distinction.
 
 Please refer to  [Paths to Relation Extraction through Semantic Structure](https://github.com/yyellin/gcn-over-semantic-representations/blob/master/Paths_to_Relation_Extraction_through_Semantic_Structures.pdf) for details about the model.
 
@@ -18,7 +18,7 @@ The module have been tested on the following environment:
 
 
 ## Environment Setup
-It is strongly recommended to run the modules in this project using a clean pthon virtual-env. Run the following commands to set this up:
+It is strongly recommended to run the modules in this project using a clean python virtual-env. Run the following commands to set this up:
 
 ```bash
 python3 -m venv /path/to/virtual/env
@@ -26,7 +26,7 @@ source /path/to/virtual/env/bin/activate
 pip install --upgrade pip
 pip install wheel
 ```
-Clone the module from github and cd into the module directory:
+Clone this module from github, and cd into the module directory:
 ```bash
 git clone https://github.com/yyellin/gcn-over-semantic-representations.git
 cd gcn-over-semantic-representations
@@ -70,20 +70,20 @@ The internal train.py exposes a large number of parameters to control the traini
 The following optional arguments specify which matrix adjacency regime to use. It is of course possible to use any combination of regimes.
 `--ud`: determines whether the UD based adjacency matrix will be used
 `--ucca`: determines whether the UCCA based adjacency matrix will be used
-`--seq`: determines whether we use the synthetic adjacency matrix , which represents a bi-lexical tree, where each token is the head of the following token.
+`--seq`: determines whether to use the synthetic adjacency matrix , which represents a bi-lexical tree, where each token is the head of the subsequent token in the sentence.
 
-In addition to the matrix adjacency arguments, an additional argument stipulates whether UCCA embedding should be used:
-`emb`:  determines whether UCCA embedding representations will be used to augment the word embeddings.
+In addition to the matrix adjacency arguments, an additional argument determines whether UCCA embedding should be used:
+`--emb`:  when provided UCCA embedding representations will be used to augment the word embeddings.
 
-#### Running the training module
+#### Run Training
 
-Use the `train.sh` script with arguments of your choise as above, remembering to also include a positional argument to stipulate the model ID:
+Use the `train.sh` script with arguments of your choice as above, remembering to also include a positional argument for the model ID, as in the following example:
 ```
-bash train.sh --ud --ucca --seq --emd 20
+bash train.sh --ud --ucca --seq --emb 20
 ```
 Model checkpoints and logs will be saved to `./saved_models/20`.
 
-## Evaluation
+#### Run Evaluation
 
 To run evaluation on the test set, run:
 ```
@@ -91,13 +91,6 @@ python eval.py saved_models/00 --dataset test
 ```
 
 This will use the `best_model.pt` file by default. Use `--model checkpoint_epoch_10.pt` to specify a model checkpoint file.
-
-## Retrain
-
-Reload a pretrained model and finetune it, run:
-```
-python train.py --load --model_file saved_models/01/best_model.pt --optim sgd --lr 0.001
-```
 
 
 ## License
