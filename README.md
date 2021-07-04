@@ -1,8 +1,8 @@
 Paths to Relation Extraction through Semantic Structure
 ==========
-This repo contains the code for the paper [Paths to Relation Extraction through Semantic Structure](https://github.com/yyellin/gcn-over-semantic-representations/blob/master/Paths_to_Relation_Extraction_through_Semantic_Structures.pdf), which explores whether semantic language representations, like UCCA, can be as helpful for the task of Relation Extraction (RE) as their syntactic representation counterparts (specifically, UD v1)
+This repo contains the code for the paper [Paths to Relation Extraction through Semantic Structure](https://github.com/yyellin/gcn-over-semantic-representations/blob/master/Paths_to_Relation_Extraction_through_Semantic_Structures.pdf), which shows that semantic language representations, like UCCA, can be as helpful for the task of Relation Extraction (RE) as their syntactic representation counterparts (specifically, UD v1)
 
-The exploration leverages the  work of Jhang, Chi and Manning in their paper [Graph Convolution over Pruned Dependency Trees Improves Relation Extraction](https://nlp.stanford.edu/pubs/zhang2018graph.pdf), and uses an extension of their initial code [GCN over pruned trees](https://github.com/qipeng/gcn-over-pruned-trees). Indeed this repo started out (and remains) a fork of theirs. 
+This examination leverages the  work of Jhang, Chi and Manning in their paper [Graph Convolution over Pruned Dependency Trees Improves Relation Extraction](https://nlp.stanford.edu/pubs/zhang2018graph.pdf), and uses an extension of their initial code [GCN over pruned trees](https://github.com/qipeng/gcn-over-pruned-trees). Indeed this repo started out (and remains) a fork of theirs. 
 
 Jhang, Chi and Manning differentiate between a regular Graph Convolution Network (GCN) and a Contextualized Graph Convolution Network (C-GCN) that bbbbbemploys an RNN as an initial deep network block. My work focuses primarily on the C-GCN model, which I often also refer to as GCN, ignoring this distinction.
 
@@ -55,7 +55,7 @@ python prepare_vocab.py dataset/tacred dataset/vocab --glove_dir dataset/glove
 ```
 This will write vocabulary and word vectors as a numpy matrix into the dir `dataset/vocab`.
 
-Now  prepare the UCCA embedding  vectors bt running:
+Now  prepare the UCCA embedding  vectors by running:
 ```
 python prepare_ucca_emb.py  dataset/tacred/ dataset/ucca-embedding
 ```
