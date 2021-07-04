@@ -65,7 +65,7 @@ This will write the UCCA embedding representation to the `dataset/ucca-embedding
 ## Training & Evaluation
 
 #### Training Options
-The internal train.py exposes a large number of parameters to control the training process. I provide a `train.sh` script that limits the number of exposed parameters to the following set:
+The internal `train.py` module exposes a large number of parameters to control the training process. I provide a `train.sh` script that limits the number of exposed parameters to the following set:
 
 The following optional arguments specify which matrix adjacency regime to use. It is of course possible to use any combination of regimes.
 `--ud`: determines whether the UD based adjacency matrix will be used
@@ -81,7 +81,7 @@ Use the `train.sh` script with arguments of your choice as above, remembering to
 ```
 bash train.sh --ud --ucca --seq --emb 20
 ```
-Model checkpoints and logs will be saved to `./saved_models/20`.
+In this example invocation, model checkpoints and logs will be saved to `./saved_models/20`.
 
 #### Run Evaluation
 
