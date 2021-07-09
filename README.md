@@ -92,6 +92,17 @@ python eval.py saved_models/00 --dataset test
 
 This will use the `best_model.pt` file by default. Use `--model checkpoint_epoch_10.pt` to specify a model checkpoint file.
 
+#### Results
+The  [Paths to Relation Extraction through Semantic Structure](https://github.com/yyellin/gcn-over-semantic-representations/blob/master/Paths_to_Relation_Extraction_through_Semantic_Structures.pdf) paper contains an extensive result breakdown analysis; the results when running evaluation and training using the `train.sh` script (which uses a set seed value of 21213), using different combinations of arguments, are as follows:
+
+| Adjacency Regime | Using UCCA Embeddings? | F1 score |
+| ---------------- | ---------------------- | -------- |
+| UD + UCCA + SEQ  | Yes                    | 67.50    |
+| UCCA             | Yes                    | 66.34    |
+| UCCA             | No                     | 65.96    |
+| UD               | No                     | 65.39    |
+
+
 
 ## License
 
