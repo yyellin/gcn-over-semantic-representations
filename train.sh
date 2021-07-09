@@ -5,9 +5,9 @@ cat << EOF
 Usage: ${0##*/} [--ud] [--ucca] [--seq] [--emb] model-id
 
  optional args:
-    --ud         use UD based adjacensy matrix
-    --ucca       use UCCA based adjacensy matrix
-    --seq        use 'SEQ' based adjacensy matrix
+    --ud         use UD based adjacency matrix
+    --ucca       use UCCA based adjacency matrix
+    --seq        use 'SEQ' based adjacency matrix
     --emb        use UCCA terminal-to-root embeddings
 
  positional args:
