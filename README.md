@@ -1,6 +1,6 @@
 Paths to Relation Extraction through Semantic Structure
 ==========
-This repo contains the code for the paper [Paths to Relation Extraction through Semantic Structure](https://github.com/yyellin/gcn-over-semantic-representations/blob/master/Paths_to_Relation_Extraction_through_Semantic_Structures.pdf), which shows that semantic language representations, like UCCA, can be as helpful for the task of Relation Extraction (RE) as their syntactic representation counterparts (specifically, UD v1)
+This repo contains the code for the paper [Paths to Relation Extraction through Semantic Structure](https://aclanthology.org/2021.findings-acl.231/), which shows that semantic language representations, like UCCA, can be as helpful for the task of Relation Extraction (RE) as their syntactic representation counterparts (specifically, UD v1)
 
 This examination leverages the  work of Jhang, Chi and Manning in their paper [Graph Convolution over Pruned Dependency Trees Improves Relation Extraction](https://nlp.stanford.edu/pubs/zhang2018graph.pdf), and uses an extension of their initial code [GCN over pruned trees](https://github.com/qipeng/gcn-over-pruned-trees). Indeed this repo started out (and remains) a fork of theirs. 
 
