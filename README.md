@@ -109,7 +109,8 @@ The  [Paths to Relation Extraction through Semantic Structure](https://github.co
 ```
 @inproceedings{yellin-abend-2021-paths,
     title = "Paths to Relation Extraction through Semantic Structure",
-    author = "Yellin, Jonathan  and Abend, Omri",
+    author = "Yellin, Jonathan  and
+      Abend, Omri",
     booktitle = "Findings of the Association for Computational Linguistics: ACL-IJCNLP 2021",
     month = aug,
     year = "2021",
@@ -119,7 +120,6 @@ The  [Paths to Relation Extraction through Semantic Structure](https://github.co
     doi = "10.18653/v1/2021.findings-acl.231",
     pages = "2614--2626",
 }
-
 ```
 
 ## License
